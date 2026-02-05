@@ -178,7 +178,7 @@ public class FrontServlet extends HttpServlet {
         try (PrintWriter out = resp.getWriter()) {
             if (selectedRoute != null) {
                 // If request is multipart, read uploaded parts into map for binding
-                Map<String, java.util.List<main.FileUpload>> uploadedFiles = new HashMap<>();
+                Map<String, java.util.List<FileUpload>> uploadedFiles = new HashMap<>();
                 boolean isMultipart = req.getContentType() != null && req.getContentType().toLowerCase().startsWith("multipart/");
                 if (isMultipart) {
                     try {
@@ -226,7 +226,7 @@ public class FrontServlet extends HttpServlet {
                                 buffer.flush();
                                 content = buffer.toByteArray();
                             }
-                            main.FileUpload fu = new main.FileUpload(content, submitted, p.getContentType(), size);
+                            FileUpload fu = new FileUpload(content, submitted, p.getContentType(), size);
                             // save to uploads/ if possible (overwrite existing)
                             try {
                                 if (uploadsPath != null) {
@@ -343,16 +343,16 @@ public class FrontServlet extends HttpServlet {
                                 // Try to bind file lists/arrays if multipart
                                 if (isMultipart) {
                                     // Array of FileUpload
-                                    if (paramType.isArray() && paramType.getComponentType() == main.FileUpload.class) {
-                                        java.util.List<main.FileUpload> lst = uploadedFiles.get(paramNameForFile);
+                                    if (paramType.isArray() && paramType.getComponentType() == FileUpload.class) {
+                                        java.util.List<FileUpload> lst = uploadedFiles.get(paramNameForFile);
                                         if (lst == null) lst = new ArrayList<>();
-                                        main.FileUpload[] arr = lst.toArray(new main.FileUpload[0]);
+                                        FileUpload[] arr = lst.toArray(new FileUpload[0]);
                                         args[i] = arr;
                                         continue;
                                     }
                                     // List<FileUpload>
                                     if (List.class.isAssignableFrom(paramType)) {
-                                        java.util.List<main.FileUpload> lst = uploadedFiles.get(paramNameForFile);
+                                        java.util.List<FileUpload> lst = uploadedFiles.get(paramNameForFile);
                                         if (lst == null) lst = new ArrayList<>();
                                         args[i] = lst;
                                         continue;
@@ -388,12 +388,12 @@ public class FrontServlet extends HttpServlet {
                                 continue;
                             }
                                 // File binding: byte[] or FileUpload
-                                if (isMultipart && (paramType == byte[].class || paramType == main.FileUpload.class)) {
-                                    java.util.List<main.FileUpload> lst = uploadedFiles.get(paramNameForFile);
+                                if (isMultipart && (paramType == byte[].class || paramType == FileUpload.class)) {
+                                    java.util.List<FileUpload> lst = uploadedFiles.get(paramNameForFile);
                                     if (lst == null || lst.isEmpty()) {
                                         throw new IllegalArgumentException("Fichier manquant: " + paramNameForFile);
                                     }
-                                    main.FileUpload first = lst.get(0);
+                                    FileUpload first = lst.get(0);
                                     if (paramType == byte[].class) {
                                         args[i] = first.getContent();
                                     } else {

@@ -3,3 +3,27 @@
 *.one
 *.onepkg
 *.onetmp
+
+# Environnement local / Tomcat / XAMPP
+xampp/
+tomcat/
+apache-tomcat*/
+**/webapps/
+**/logs/
+**/temp/
+**/work/
+
+# Fichiers générés (compilation / packaging)
+**/WEB-INF/classes/
+**/*.class
+**/*.war
+**/classes/
+**/lib/clustering_framework.jar
+
+# Config locale IDE/OS
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+

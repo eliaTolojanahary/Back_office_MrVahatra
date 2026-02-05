@@ -65,7 +65,7 @@ Créer l'API qui renvoie la liste des reservation présent dans la base
             Classe :Reservation, ReservationController
             Fonction : List<Reservation> getAll(DAteTime datetime)
         Base :
-        Qui : Mir
+        Qui : Elia
         Description :
             Créer une API qui va renvoyer un JSON de la liste de tous les Hotel présent dans la base, avec la possibilité de la datetime null, du coup, renvoie toutes les réervations
 
