@@ -1,0 +1,61 @@
+compte git hub angalana credit herokui
+
+scp (archaique)
+mila mi verifie regle de nommage(classe minuscule, anarana methode misy underscore)
+
+keycloak: higerena cle secrete
+
+base : arreter na rehefa vita ny test
+
+fo sy bo samy manana main:
+    my dev miclone ny branche a partir anle main,mangataka marge request
+    accepeteny TL ilay izy de mergeny ao amin'ny main
+    izay vao deployena anaty staging
+    tsy ny main no deployena fa micreer branche vao2 a a partir an'ny main: staging/sprint/0
+    De a partir anle staging no midepl localement amin'ny env stage
+    mitest apres : manisy modif ny TL
+    A partir anle branche stanging no micreer branche fix
+    Vita fix de merge request raha accepte de merge ao amin'ny staging
+    Cherry pick no mandefa azy any @ main (otrany merge ihany)
+meme process pour la production fa release ndray ilay branche au lieu de staging
+Vita ny sprint 2 na 3 de fafana ny branche release rehetra, ny feature koa torak'izay
+
+fanaovana depl : scp,herokui, render
+
+bo: framework
+fo: spring mvc
+ 
+
+Ilay appli: misy info client: nom,prenom,passport..
+            nombre passager : 11 ohatra
+            date heure: amin'izao izahay tonga
+            hotel: atsy amin'ny hotel izao no aterina 
+            tsy miditra amin'ny reservation d'hotel
+            manana reservation bedebe en parallele misy vehicule misy ny capacite (nb places)
+            misy type de carburation: diesel....
+            misy parametre vitesse voiture, TA (temps d'attente)
+Ny zavatra angatahana, finalite de hoe tsika manome date iray, de hoe planifieo ny regroupement sy assignationa anah voiture amin'ity date iray ity
+tsy amin'ilay jour j fa x/x/x jours avant no manao plannification, manome date iray zany efa hanana ny reservation de mamoaka apres hoe izao ny ordre 
+anah depart : ity num vehicule ity ireto ny cient ao aminy de amin'izao ny depart any (mianga 8h11 de ireto daholo ny destination any)
+
+Mampiditra notio anah TA satria raha une heure, de supposena hioe misy vol tonga aminah date iray
+de heure iray... izany hoe meme vol zany raha mitovy fa raha hoe nisy olona iray tonga la meme date fa h2 no tonga 
+de azo atao ny manao regroupement an'izareo raha mbola anatin'ilay TA izy, izay vol ao anaty ny une heure zany no afaka regroupena 
+On va suppose hoe miova 30 min du coup miova daholo ilay plannification
+Raha mbola anaty ny TA zany ilay passager de miaraka hitadiavana fiara
+
+olana: mi assiger vehicule aminah reservation par rapport amin'ilay nb de passagers
+    raha supposena hoe cap =21 de nefa 11 zareo de afaka mbola manatsofoka folo ao on va dire hoe misy 3,5,2 de afaka atsofoka dans la meme voiture 
+
+Regle:  1)izay manana cap akaiky anle nb passager no andefasana an'izareo ex: misy cap =8,10 de nefa passagers 6 du coup 
+ilay vehicule manana cap 8 no andehanany zareo
+        2) On va suppose hoe misy cap=10,8,8 de izay mbola tsy plannifie izany hoe manana trajet vitsivitsy no andefasana azy, izay no hilavana vitesse moyenne 
+        sy distance par rapport amin'ilay hotel (A vers B) satria mety ho tafaverina mialoha izy 
+        Ny fomba hi simulena an'ilay hoe tafaverina: raha niala t@ 9:10 izy de nanatitra taratasy de 11:30 vao tafaverina aeroport donc izay vol ao arianany
+        11:30 no azo andefasana azy 
+        raha mbola samy tsy nisy nandeha de diesel no mandeha aloha, sinon mandefitra ny iray raha efa nandeha 
+        3) amin'ny farany random ihany 
+
+Supposena hoe a minuit de efa eny amin'ny aeroport ny vehicule
+Ny vitesse moyenne: mitovy daholo
+
