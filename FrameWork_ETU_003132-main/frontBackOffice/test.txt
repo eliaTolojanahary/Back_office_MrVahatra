@@ -1,0 +1,19 @@
+sprint 9: possibilite d'expose un api rest ( y a une annotation json na apirest na webapi) 
+averiny json ilay data 
+raha misy liste par exemple (ilay methode mbola mitombona foana get/post) raha ampina json na api 
+tsy mankany amin'ny vue intsony 
+raha int ny eo ,na date na etudiant na departement de version json an'izay no averiny  fa raha modelView de recupereny ilay data de ilay data no averiny
+na misy setURL ary any @ modelView de ignorena, tsy mi dispatch raha json ilay izy 
+ny methode ao @ controller no annotena 
+ilay retour {
+status: succes ou error,
+code: 404 /200/...,
+data: id :1,name: Rakoto.....
+}
+sy c une liste {
+status: succes ou error,
+code: 404 /200/...,
+count:10,
+data: {1:  id :1,name: Rakoto.....,
+2: id:2,.....}
+}

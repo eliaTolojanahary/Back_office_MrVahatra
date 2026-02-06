@@ -73,6 +73,17 @@ echo === Etape 7: Generation du JAR ===
 if not exist "%PROJECT_ROOT%\lib" mkdir "%PROJECT_ROOT%\lib"
 jar cf "%JAR_PATH%" -C "%OUTPUT_DIR%" .
 
+if %ERRORLEVEL% NEQ 0 (
+    echo ERREUR lors de la generation du JAR
+    pause
+    exit /b 1
+)
+
+echo === Etape 8: Copie du JAR dans frontBackOffice ===
+set FRONT_LIB=%~dp0FrameWork_ETU_003132-main\frontBackOffice\WEB-INF\lib
+if not exist "%FRONT_LIB%" mkdir "%FRONT_LIB%"
+copy /Y "%JAR_PATH%" "%FRONT_LIB%\%JAR_NAME%"
+
 if %ERRORLEVEL% EQU 0 (
     echo.
     echo ===================================
@@ -80,10 +91,11 @@ if %ERRORLEVEL% EQU 0 (
     echo Les noms de parametres sont maintenant preserves.
     echo Classes generees dans: %OUTPUT_DIR%
     echo JAR genere: %JAR_PATH%
+    echo JAR copie dans: %FRONT_LIB%\%JAR_NAME%
     echo ===================================
 ) else (
     echo.
-    echo ERREUR DE GENERATION DU JAR
+    echo ERREUR DE COPIE DU JAR
 )
 
 pause
