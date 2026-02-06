@@ -4,6 +4,7 @@ public class Reservation {
     private int id;
     private String client;
     private int idHotel;
+    private String hotel;
     private int nbPassager;
     private String dateHeureDepart;
     
@@ -30,6 +31,10 @@ public class Reservation {
     public int getIdHotel() {
         return idHotel;
     }
+
+    public String getHotel() {
+        return hotel;
+    }
     
     public int getNbPassager() {
         return nbPassager;
@@ -51,6 +56,10 @@ public class Reservation {
     public void setIdHotel(int idHotel) {
         this.idHotel = idHotel;
     }
+
+    public void setHotel(String hotel) {
+        this.hotel = hotel;
+    }
     
     public void setNbPassager(int nbPassager) {
         this.nbPassager = nbPassager;
@@ -66,6 +75,7 @@ public class Reservation {
                 "id=" + id +
                 ", client='" + client + '\'' +
                 ", idHotel=" + idHotel +
+            ", hotel='" + hotel + '\'' +
                 ", nbPassager=" + nbPassager +
                 ", dateHeureDepart='" + dateHeureDepart + '\'' +
                 '}';

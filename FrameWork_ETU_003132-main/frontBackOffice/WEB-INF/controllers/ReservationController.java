@@ -100,8 +100,12 @@ public class ReservationController {
             }
         }
 
-        String sqlAll = "SELECT id, client, id_hotel, nb_passager, date_heure_depart FROM reservation ORDER BY date_heure_depart";
-        String sqlFilter = "SELECT id, client, id_hotel, nb_passager, date_heure_depart FROM reservation WHERE date_heure_depart = ?::timestamp ORDER BY date_heure_depart";
+        String sqlAll = "SELECT r.id, r.client, r.id_hotel, h.nom AS hotel, r.nb_passager, r.date_heure_depart " +
+            "FROM reservation r JOIN hotel h ON r.id_hotel = h.id " +
+            "ORDER BY r.date_heure_depart";
+        String sqlFilter = "SELECT r.id, r.client, r.id_hotel, h.nom AS hotel, r.nb_passager, r.date_heure_depart " +
+            "FROM reservation r JOIN hotel h ON r.id_hotel = h.id " +
+            "WHERE r.date_heure_depart = ?::timestamp ORDER BY r.date_heure_depart";
 
         try (Connection conn = getConnection()) {
             PreparedStatement stmt;
@@ -118,6 +122,7 @@ public class ReservationController {
                     r.setId(rs.getInt("id"));
                     r.setClient(rs.getString("client"));
                     r.setIdHotel(rs.getInt("id_hotel"));
+                    r.setHotel(rs.getString("hotel"));
                     r.setNbPassager(rs.getInt("nb_passager"));
                     r.setDateHeureDepart(String.valueOf(rs.getTimestamp("date_heure_depart")));
                     reservations.add(r);
