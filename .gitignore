@@ -16,6 +16,7 @@ apache-tomcat*/
 # Fichiers générés (compilation / packaging)
 **/WEB-INF/classes/
 **/*.class
+**/*.jar
 **/*.war
 **/classes/
 **/lib/clustering_framework.jar
