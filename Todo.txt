@@ -1,0 +1,80 @@
+Sprint 1 06/02/2026
+TL : Rahajarijaona Mir ETU003132
+BackOffice : Tolojanahary Elia Nantenanaina ETU003230
+FrontOffice : RasolofoHarilala Sandaniaina Manoa ETU003200
+
+Création Branche FrontOffice : Sprint/1/feature/1
+    Affichage :
+    Métier :
+    Base :
+    Qui : Mir
+
+Création Branche BackOffice : Sprint/1/feature/1
+    Affichage :
+    Métier :
+    Base :
+    Qui : Mir
+
+Création du script d'insertion de base de donnée :
+    Affichage :
+    Métier :
+    Base :
+    Qui :
+    Description : 
+        Crée le script de création de base de donnée pour les tables suivantes : 
+            reservation : id(SERIAL), idClient(VARCHAR(4)), nb_passager, dateheure(DATETIME), id_hotel
+            hotel: id(SERIAL), nom
+
+Création du script pour les données d'hotel
+    Affichage :
+    Métier :
+    Base : hotel
+    Qui : Elia
+    Description :
+         Créer un script : donnee.sql qui va contenir des données pour la table hotel
+
+Créer le formulaire d' insertion de réservation
+    Affichage : 
+        Formulaire avec les champs suivant : 
+            id_client : text (CL0001)
+            nombre de passager : number
+            date et heure d'arrivée : DATETIME
+            Hôtel : liste des hotel présent dans la base
+            Boutton valider
+
+    Métier :
+        Classe : 
+            Reservation
+                int id
+                String id_client
+                int nb_client
+                DateTime date_heure
+                Hotel hotel
+        Fonction : booelean create(Reservation reservation)
+    Base :
+        reservation : id(SERIAL), idClient(VARCHAR(4)), nb_passager, dateheure(DATETIME), id_hotel
+        hotel: id(SERIAL), nom
+
+    Qui : Elia
+    Description : 
+        Créer le formulaire qui permet d'enregistrer une nouvelle réservation
+
+Créer l'API qui renvoie la liste des reservation présent dans la base
+    Affichage :
+        Métier :
+            Classe :Reservation, ReservationController
+            Fonction : List<Reservation> getAll(DAteTime datetime)
+        Base :
+        Qui : Mir
+        Description :
+            Créer une API qui va renvoyer un JSON de la liste de tous les Hotel présent dans la base, avec la possibilité de la datetime null, du coup, renvoie toutes les réervations
+
+Créer la page qui peremt d'afficher la liste des réservation
+    Affichage :
+        Créer un tableau qui va afficher les listes des reservation avec les attribus suivant:
+            id, id_client, nombre de passager, date heure arrivée, Hotel
+        Créer un filtre qui permet de filtrer par date et heure
+    Métier :
+    Base :
+    Qui : Manoa
+    Description: Créer un page qui permet d'afficher la liste des réservations avec un filtre par dateTime , et qui va utiliser L'API du backOffice pour récupérer les donnée
