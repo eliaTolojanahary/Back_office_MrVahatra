@@ -1,6 +1,6 @@
 -- =========================
--- SCRIPT DE CRÉATION - Sprint 1
--- Date: 06-02-2026
+-- SCRIPT DE CRÉATION - Sprint 2
+-- Date: 12-02-2026
 -- =========================
 
 -- =========================
@@ -12,6 +12,25 @@ CREATE TABLE hotel (
     nom VARCHAR(200) NOT NULL,
     adresse TEXT NOT NULL
 );
+
+-- =========================
+-- Table TOKEN (Nouvelle)
+-- =========================
+
+CREATE TABLE token (
+    id SERIAL PRIMARY KEY,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expiration TIMESTAMP NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    user_id INTEGER,  -- Nullable pour l'instant, FK à ajouter plus tard
+    type VARCHAR(50) DEFAULT 'AUTH'  -- 'AUTH', 'API', etc.
+);
+
+-- Index pour améliorer les performances de recherche
+CREATE INDEX idx_token_value ON token(token);
+CREATE INDEX idx_token_expiration ON token(expiration);
+CREATE INDEX idx_token_active ON token(is_active);
 
 -- =========================
 -- Table RESERVATION
