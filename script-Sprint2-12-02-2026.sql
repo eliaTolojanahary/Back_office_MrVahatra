@@ -1,3 +1,19 @@
+
+
+DROP TABLE IF EXISTS vehicule CASCADE;
+
+CREATE TABLE vehicule (
+    id SERIAL PRIMARY KEY,
+    reference VARCHAR(100) NOT NULL UNIQUE,
+    place INTEGER NOT NULL CHECK (place > 0),
+    type_carburant VARCHAR(50) NOT NULL
+);
+
+
+CREATE INDEX idx_vehicule_reference ON vehicule(reference);
+
+CREATE INDEX idx_vehicule_type_carburant ON vehicule(type_carburant);
+
 -- =========================
 -- SCRIPT DE CRÉATION - Sprint 2
 -- Date: 12-02-2026
@@ -69,3 +85,4 @@ INSERT INTO hotel (nom, adresse) VALUES
 ('Hotel La Ribaudiere', 'Route de l''Université, Antananarivo, Madagascar'),
 ('Hotel Tana Plaza', 'Rue Patrice Lumumba, Antananarivo, Madagascar'),
 ('Hotel Sunny', 'Analakely, Antananarivo, Madagascar');
+
