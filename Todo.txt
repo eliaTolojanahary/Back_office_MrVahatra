@@ -1,3 +1,7 @@
+Affichage : 
+Métier :
+Base :
+
 Sprint 1 06/02/2026
 TL : Rahajarijaona Mir ETU003132
 BackOffice : Tolojanahary Elia Nantenanaina ETU003230
@@ -78,3 +82,27 @@ Créer la page qui peremt d'afficher la liste des réservation
     Base :
     Qui : Manoa
     Description: Créer un page qui permet d'afficher la liste des réservations avec un filtre par dateTime , et qui va utiliser L'API du backOffice pour récupérer les donnée
+
+
+Sprint2
+TL : RasolofoHarilala Sandaniaina Manoa ETU003200
+BackOffice : Rahajarijaona Mir ETU003132 , Tolojanahary Elia Nantenanaina ETU003230
+FrontOffice : 
+
+Création de la table Token (id, token, created_at, expired_at, user_id)
+    Affichage :
+    Métier :
+    Base : Token
+    Qui : Mir
+
+CRUD Vehicule
+    Affichage : 
+        Créer un formulaire pour insérer et modifier les vehicules avec les champs suivants:
+            Reference, Place, Type_carburant
+        Créer une page pour lister tous les Vehicule avec bouttons "modifier" et "supprimer"
+    Métier :
+        Classe : Vehicule, VehiculeController
+        Fonction : boolean create (Vehicule vehicule), boolean delete (int id_vehicule), Vehicule update (Vehicule Vehicule), List<Vehicule> getAll()
+    Base : Vehicule
+    Qui : Elia
+    

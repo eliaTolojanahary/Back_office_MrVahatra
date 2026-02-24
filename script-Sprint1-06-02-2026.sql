@@ -1,3 +1,21 @@
+-- =========================
+-- SCRIPT DE CRÉATION - Sprint 1
+-- Date: 06-02-2026
+-- =========================
+
+-- =========================
+-- Table HOTEL
+-- =========================
+
+CREATE TABLE hotel (
+    id SERIAL PRIMARY KEY,
+    nom VARCHAR(200) NOT NULL,
+    adresse TEXT NOT NULL
+);
+
+-- =========================
+-- Table RESERVATION
+-- =========================
 
 CREATE TABLE reservation (
     id SERIAL PRIMARY KEY,
