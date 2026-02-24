@@ -48,6 +48,12 @@ CREATE TABLE reservation (
         REFERENCES hotel(id)
 );
 
+CREATE TABLE vehiucle(
+    id SERIAL PRIMARY KEY,
+    renferences VARCHAR(100) NOT NULL,
+    place INTEGER NOT NULL CHECK (place > 0),
+    type_carburant VARCHAR(50) NOT NULL
+);
 -- =========================
 -- Données pour la table HOTEL
 -- =========================
