@@ -1,4 +1,4 @@
-<%@ page import="com.example.models.Vehicule" %>
+<%@ page import="models.Vehicule" %>
 <%@ page import="java.util.List" %>
 <!DOCTYPE html>
 <html>

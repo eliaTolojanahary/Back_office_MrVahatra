@@ -1,4 +1,4 @@
-package com.example.controllers;
+package controllers;
 
 import annotation.MethodeAnnotation;
 import annotation.GetMapping;
@@ -6,9 +6,9 @@ import annotation.PostMapping;
 import annotation.ClasseAnnotation;
 import annotation.Api;
 import modelview.ModelView;
-import com.example.models.Reservation;
-import com.example.models.Hotel;
-import com.example.util.DatabaseConnection;
+import models.Reservation;
+import models.Hotel;
+import util.DatabaseConnection;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +20,7 @@ public class ReservationController {
     @MethodeAnnotation("/reservation/form")
     @GetMapping
     public ModelView getFormReservation() {
-        ModelView mv = new ModelView("/WEB-INF/formReservation.jsp");
+        ModelView mv = new ModelView("/formReservation.jsp");
         try (Connection conn = DatabaseConnection.getConnection()) {
             List<Hotel> hotels = new ArrayList<>();
             String sql = "SELECT id, nom, adresse FROM hotel ORDER BY nom";
@@ -46,7 +46,7 @@ public class ReservationController {
     @MethodeAnnotation("/reservation/save")
     @PostMapping
     public ModelView saveReservation(Reservation reservation) {
-        ModelView mv = new ModelView("/WEB-INF/resultReservation.jsp");
+        ModelView mv = new ModelView("/resultReservation.jsp");
         boolean success = false;
         
         try (Connection conn = DatabaseConnection.getConnection()) {

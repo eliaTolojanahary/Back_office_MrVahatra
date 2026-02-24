@@ -1,10 +1,15 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ page import="com.example.models.PlanningConfig" %>
+<%@ page import="models.PlanningConfig" %>
+<%
+
+    PlanningConfig planning_config= (PlanningConfig) request.getAttribute("config");
+%>
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <title>Configuration Paramètres Planning</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -96,16 +101,15 @@
 </head>
 <body>
     <div class="container">
-        <h1>⚙️ Configuration des Paramètres Planning</h1>
+        <h1><span style="font-size:1.2em;vertical-align:middle;" class="material-icons">settings</span> Configuration des Paramètres Planning</h1>
         
         <% 
-            PlanningConfig config = (PlanningConfig) request.getAttribute("config");
-            if (config != null && config.getId() > 0) {
+            if (planning_config!= null && planning_config.getId() > 0) {
         %>
             <div class="info-box">
                 <h3>Configuration actuelle</h3>
-                <p><strong>Vitesse moyenne :</strong> <%= config.getVitesseMoyenne() %> km/h</p>
-                <p><strong>Temps d'attente :</strong> <%= config.getTempsAttente() %> minutes</p>
+                <p><strong>Vitesse moyenne :</strong> <%= planning_config.getVitesseMoyenne() %> km/h</p>
+                <p><strong>Temps d'attente :</strong> <%= planning_config.getTempsAttente() %> minutes</p>
             </div>
         <% } %>
         
@@ -123,7 +127,7 @@
                        name="vitesseMoyenne" 
                        step="0.1" 
                        min="1" 
-                       value="<%= config != null ? config.getVitesseMoyenne() : 40.0 %>" 
+                       value="<%= planning_config != null ? planning_config.getVitesseMoyenne() : 40.0 %>" 
                        required>
                 <div class="unit">En kilomètres par heure (km/h)</div>
             </div>
@@ -134,17 +138,17 @@
                        id="tempsAttente" 
                        name="tempsAttente" 
                        min="0" 
-                       value="<%= config != null ? config.getTempsAttente() : 15 %>" 
+                       value="<%= planning_config != null ? planning_config.getTempsAttente() : 15 %>" 
                        required>
                 <div class="unit">En minutes</div>
             </div>
             
-            <button type="submit" class="btn-submit">💾 Enregistrer la Configuration</button>
+            <button type="submit" class="btn-submit"><span style="font-size:1.2em;vertical-align:middle;" class="material-icons">save</span> Enregistrer la Configuration</button>
         </form>
         
         <div style="text-align: center; margin-top: 20px;">
             <a href="<%= request.getContextPath() %>/planning/selection-date" class="btn-secondary">
-                📅 Aller à la sélection de date
+                <span style="font-size:1.2em;vertical-align:middle;" class="material-icons">event</span> Aller à la sélection de date
             </a>
         </div>
     </div>

@@ -1,4 +1,4 @@
-package com.example.models;
+package models;
 
 public class Lieu {
     private int id;

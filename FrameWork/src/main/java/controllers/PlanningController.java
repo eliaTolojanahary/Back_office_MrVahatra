@@ -1,12 +1,12 @@
-package com.example.controllers;
+package controllers;
 
 import annotation.MethodeAnnotation;
 import annotation.GetMapping;
 import annotation.PostMapping;
 import annotation.ClasseAnnotation;
 import modelview.ModelView;
-import com.example.models.*;
-import com.example.util.DatabaseConnection;
+import models.*;
+import util.DatabaseConnection;
 import java.sql.*;
 import java.util.List;
 
@@ -19,7 +19,7 @@ public class PlanningController {
     @MethodeAnnotation("/planning/config/form")
     @GetMapping
     public ModelView getFormPlanningConfig() {
-        ModelView mv = new ModelView("/WEB-INF/formPlanningConfig.jsp");
+        ModelView mv = new ModelView("/formPlanningConfig.jsp");
         
         try (Connection conn = DatabaseConnection.getConnection()) {
             PlanningConfig config = Planning.getActiveConfig(conn);
@@ -38,7 +38,7 @@ public class PlanningController {
     @MethodeAnnotation("/planning/config/save")
     @PostMapping
     public ModelView savePlanningConfig(PlanningConfig config) {
-        ModelView mv = new ModelView("/WEB-INF/resultPlanningConfig.jsp");
+        ModelView mv = new ModelView("/resultPlanningConfig.jsp");
         boolean success = false;
         
         try (Connection conn = DatabaseConnection.getConnection()) {
@@ -80,7 +80,7 @@ public class PlanningController {
     @MethodeAnnotation("/planning/selection-date")
     @GetMapping
     public ModelView getFormSelectionDate() {
-        ModelView mv = new ModelView("/WEB-INF/formSelectionDatePlanning.jsp");
+        ModelView mv = new ModelView("/formSelectionDatePlanning.jsp");
         
         try (Connection conn = DatabaseConnection.getConnection()) {
             PlanningConfig config = Planning.getActiveConfig(conn);
@@ -99,7 +99,7 @@ public class PlanningController {
     @MethodeAnnotation("/planning/reservations-by-date")
     @PostMapping
     public ModelView getReservationsByDate(String datePlanning) {
-        ModelView mv = new ModelView("/WEB-INF/listReservationsByDate.jsp");
+        ModelView mv = new ModelView("/listReservationsByDate.jsp");
         
         try (Connection conn = DatabaseConnection.getConnection()) {
             List<Reservation> reservations = Planning.getReservationsByDate(conn, datePlanning);
@@ -123,7 +123,7 @@ public class PlanningController {
     @MethodeAnnotation("/planning/lieux")
     @GetMapping
     public ModelView getAllLieux() {
-        ModelView mv = new ModelView("/WEB-INF/listLieux.jsp");
+        ModelView mv = new ModelView("/listLieux.jsp");
         
         try (Connection conn = DatabaseConnection.getConnection()) {
             List<Lieu> lieux = Planning.getAllLieux(conn);
@@ -142,7 +142,7 @@ public class PlanningController {
     @MethodeAnnotation("/planning/distances")
     @GetMapping
     public ModelView getAllDistances() {
-        ModelView mv = new ModelView("/WEB-INF/listDistances.jsp");
+        ModelView mv = new ModelView("/listDistances.jsp");
         
         try (Connection conn = DatabaseConnection.getConnection()) {
             List<Distance> distances = Planning.getAllDistances(conn);

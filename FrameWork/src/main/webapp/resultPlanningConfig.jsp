@@ -1,8 +1,9 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ page import="com.example.models.PlanningConfig" %>
+<%@ page import="models.PlanningConfig" %>
 <!DOCTYPE html>
 <html>
 <head>
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <meta charset="UTF-8">
     <title>Résultat Configuration Planning</title>
     <style>
@@ -83,11 +84,11 @@
 </head>
 <body>
     <div class="container">
-        <h1>Résultat de la Configuration</h1>
+        <h1><span style="font-size:1.2em;vertical-align:middle;" class="material-icons">settings</span> Résultat de la Configuration</h1>
         
         <% 
             Boolean success = (Boolean) request.getAttribute("success");
-            PlanningConfig config = (PlanningConfig) request.getAttribute("config");
+            PlanningConfig planning_config= (PlanningConfig) request.getAttribute("config");
             String error = (String) request.getAttribute("error");
             
             if (success != null && success) {
@@ -117,10 +118,10 @@
         
         <div class="button-group">
             <a href="<%= request.getContextPath() %>/planning/config/form" class="btn btn-primary">
-                ⚙️ Modifier la configuration
+                <span style="font-size:1.2em;vertical-align:middle;" class="material-icons">settings</span> Modifier la configuration
             </a>
             <a href="<%= request.getContextPath() %>/planning/selection-date" class="btn btn-secondary">
-                📅 Sélection de date
+                <span style="font-size:1.2em;vertical-align:middle;" class="material-icons">event</span> Sélection de date
             </a>
         </div>
     </div>

@@ -1,8 +1,12 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ page import="com.example.models.PlanningConfig" %>
+<%@ page import="models.PlanningConfig" %>
+<%
+    PlanningConfig planning_config= (PlanningConfig) request.getAttribute("config");
+%>
 <!DOCTYPE html>
 <html>
 <head>
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <meta charset="UTF-8">
     <title>Sélection Date de Planification</title>
     <style>
@@ -119,21 +123,20 @@
 </head>
 <body>
     <div class="container">
-        <h1>📅 Sélection de Date pour Planification</h1>
+        <h1><span class="material-icons" style="font-size:1.2em;vertical-align:middle;">event</span> Sélection de Date pour Planification</h1>
         
         <% 
-            PlanningConfig config = (PlanningConfig) request.getAttribute("config");
-            if (config != null && config.getId() > 0) {
+            if (planning_config != null && planning_config.getId() > 0) {
         %>
             <div class="config-info">
-                <h3>⚙️ Configuration Active</h3>
+                <h3><span class="material-icons" style="font-size:1.2em;vertical-align:middle;">settings</span> Configuration Active</h3>
                 <div class="config-item">
                     <span><strong>Vitesse Moyenne :</strong></span>
-                    <span><%= config.getVitesseMoyenne() %> km/h</span>
+                    <span><%= planning_config.getVitesseMoyenne() %> km/h</span>
                 </div>
                 <div class="config-item">
                     <span><strong>Temps d'Attente :</strong></span>
-                    <span><%= config.getTempsAttente() %> minutes</span>
+                    <span><%= planning_config.getTempsAttente() %> minutes</span>
                 </div>
             </div>
         <% } %>
@@ -146,7 +149,7 @@
         
         <form action="<%= request.getContextPath() %>/planning/reservations-by-date" method="POST">
             <div class="form-group">
-                <label for="datePlanning">📆 Sélectionnez la date de planification :</label>
+                <label for="datePlanning"><span style="font-size:1.2em;vertical-align:middle;" class="material-icons">event</span> Sélectionnez la date de planification :</label>
                 <input type="date" 
                        id="datePlanning" 
                        name="datePlanning" 
@@ -157,13 +160,13 @@
             </div>
             
             <button type="submit" class="btn-submit">
-                🔍 Voir les Réservations & Accéder à la Planification
+                <span style="font-size:1.2em;vertical-align:middle;" class="material-icons">search</span> Voir les Réservations & Accéder à la Planification
             </button>
         </form>
         
         <div class="links">
             <a href="<%= request.getContextPath() %>/planning/config/form" class="btn-config">
-                ⚙️ Modifier les Paramètres Système
+                <span style="font-size:1.2em;vertical-align:middle;" class="material-icons">settings</span> Modifier les Paramètres Système
             </a>
         </div>
     </div>

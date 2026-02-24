@@ -1,7 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.List" %>
-<%@ page import="com.example.models.Reservation" %>
-<%@ page import="com.example.models.PlanningConfig" %>
+<%@ page import="models.Reservation" %>
+<%@ page import="models.PlanningConfig" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -130,12 +130,12 @@
 </head>
 <body>
     <div class="container">
-        <h1>📋 Réservations du <%= request.getAttribute("datePlanning") %></h1>
+        <h1><span style="font-size:1.2em;vertical-align:middle;" class="material-icons">assignment</span> Réservations du <%= request.getAttribute("datePlanning") %></h1>
         
         <% 
             List<Reservation> reservations = (List<Reservation>) request.getAttribute("reservations");
             Integer count = (Integer) request.getAttribute("count");
-            PlanningConfig config = (PlanningConfig) request.getAttribute("config");
+            <!-- PlanningConfig config = (PlanningConfig) request.getAttribute("config"); -->
             String error = (String) request.getAttribute("error");
         %>
         
@@ -152,11 +152,11 @@
                 <% if (config != null) { %>
                 <div class="info-item">
                     <div class="info-label">Vitesse Moyenne</div>
-                    <div class="info-value"><%= config.getVitesseMoyenne() %> km/h</div>
+                    <div class="info-value"><%= planning_config.getVitesseMoyenne() %> km/h</div>
                 </div>
                 <div class="info-item">
                     <div class="info-label">Temps d'Attente</div>
-                    <div class="info-value"><%= config.getTempsAttente() %> min</div>
+                    <div class="info-value"><%= planning_config.getTempsAttente() %> min</div>
                 </div>
                 <% } %>
             </div>

@@ -1,4 +1,4 @@
-package com.example.controllers;
+package controllers;
 
 import annotation.MethodeAnnotation;
 import annotation.GetMapping;
@@ -6,8 +6,8 @@ import annotation.PostMapping;
 import annotation.ClasseAnnotation;
 import annotation.RequestParam;
 import modelview.ModelView;
-import com.example.models.Vehicule;
-import com.example.util.DatabaseConnection;
+import models.Vehicule;
+import util.DatabaseConnection;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,14 +18,14 @@ public class VehiculeController {
     @MethodeAnnotation("/vehicule/form")
     @GetMapping
     public ModelView getFormVehicule() {
-        ModelView mv = new ModelView("/WEB-INF/formVehicule.jsp");
+        ModelView mv = new ModelView("/formVehicule.jsp");
         return mv;
     }
  
     @MethodeAnnotation("/vehicule/save")
     @PostMapping
     public ModelView saveVehicule(Vehicule vehicule) {
-        ModelView mv = new ModelView("/WEB-INF/resultVehicule.jsp");
+        ModelView mv = new ModelView("/resultVehicule.jsp");
         boolean success = false;
         
         try (Connection conn = DatabaseConnection.getConnection()) {
@@ -59,7 +59,7 @@ public class VehiculeController {
     @MethodeAnnotation("/vehicule/list")
     @GetMapping
     public ModelView listVehicules() {
-        ModelView mv = new ModelView("/WEB-INF/listVehicule.jsp");
+        ModelView mv = new ModelView("/listVehicule.jsp");
         List<Vehicule> vehicules = new ArrayList<>();
         
         try (Connection conn = DatabaseConnection.getConnection()) {
@@ -88,7 +88,7 @@ public class VehiculeController {
     @MethodeAnnotation("/vehicule/edit")
     @GetMapping
     public ModelView editFormVehicule(@RequestParam("id") String idStr) {
-        ModelView mv = new ModelView("/WEB-INF/editVehicule.jsp");
+        ModelView mv = new ModelView("/editVehicule.jsp");
         
         try {
             int id = Integer.parseInt(idStr);
@@ -110,7 +110,7 @@ public class VehiculeController {
     @MethodeAnnotation("/vehicule/update")
     @PostMapping
     public ModelView updateVehicule(@RequestParam("id") String idStr, Vehicule vehicule) {
-        ModelView mv = new ModelView("/WEB-INF/resultVehicule.jsp");
+        ModelView mv = new ModelView("/resultVehicule.jsp");
         boolean success = false;
         
         try {
@@ -147,7 +147,7 @@ public class VehiculeController {
     @MethodeAnnotation("/vehicule/delete")
     @GetMapping
     public ModelView deleteVehicule(@RequestParam("id") String idStr) {
-        ModelView mv = new ModelView("/WEB-INF/resultVehicule.jsp");
+        ModelView mv = new ModelView("/resultVehicule.jsp");
         boolean success = false;
         
         try {
