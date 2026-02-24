@@ -120,7 +120,7 @@ Classes :
 Fonctions :
 - Calcul distance entre hôtel et aéroport
 - Calcul temps trajet :
-    temps = distance / vitesse_moyenne + temps_attente
+    temps = distance / vitesse_moyenne 
 
 - Assignation automatique du véhicule selon les règles :
     - Client inseparable
