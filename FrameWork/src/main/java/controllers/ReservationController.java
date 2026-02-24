@@ -79,51 +79,30 @@ public class ReservationController {
 
     @MethodeAnnotation("/reservation/list")
     @GetMapping
-    @Api
-    public List<Reservation> getAll(Map<String, Object> params) {
+    public ModelView getAllReservations() {
+        ModelView mv = new ModelView("/listReservationsByDate.jsp");
         List<Reservation> reservations = new ArrayList<>();
-        String datetime = null;
-        if (params != null && params.containsKey("datetime")) {
-            Object raw = params.get("datetime");
-            if (raw instanceof String) {
-                datetime = (String) raw;
-            } else if (raw instanceof String[] && ((String[]) raw).length > 0) {
-                datetime = ((String[]) raw)[0];
-            }
-        }
-
-        String sqlAll = "SELECT r.id, r.client, r.id_hotel, h.nom AS hotel, r.nb_passager, r.date_heure_depart " +
+        String sql = "SELECT r.id, r.client, r.id_hotel, h.nom AS hotel, r.nb_passager, r.date_heure_depart " +
             "FROM reservation r JOIN hotel h ON r.id_hotel = h.id " +
             "ORDER BY r.date_heure_depart";
-        String sqlFilter = "SELECT r.id, r.client, r.id_hotel, h.nom AS hotel, r.nb_passager, r.date_heure_depart " +
-            "FROM reservation r JOIN hotel h ON r.id_hotel = h.id " +
-            "WHERE r.date_heure_depart = ?::timestamp ORDER BY r.date_heure_depart";
-
-        try (Connection conn = DatabaseConnection.getConnection()) {
-            PreparedStatement stmt;
-            if (datetime == null || datetime.trim().isEmpty()) {
-                stmt = conn.prepareStatement(sqlAll);
-            } else {
-                stmt = conn.prepareStatement(sqlFilter);
-                stmt.setString(1, datetime);
-            }
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    Reservation r = new Reservation();
-                    r.setId(rs.getInt("id"));
-                    r.setClient(rs.getString("client"));
-                    r.setIdHotel(rs.getInt("id_hotel"));
-                    r.setHotel(rs.getString("hotel"));
-                    r.setNbPassager(rs.getInt("nb_passager"));
-                    r.setDateHeureDepart(String.valueOf(rs.getTimestamp("date_heure_depart")));
-                    reservations.add(r);
-                }
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                Reservation r = new Reservation();
+                r.setId(rs.getInt("id"));
+                r.setClient(rs.getString("client"));
+                r.setIdHotel(rs.getInt("id_hotel"));
+                r.setHotel(rs.getString("hotel"));
+                r.setNbPassager(rs.getInt("nb_passager"));
+                r.setDateHeureDepart(String.valueOf(rs.getTimestamp("date_heure_depart")));
+                reservations.add(r);
             }
         } catch (SQLException e) {
-            throw new RuntimeException("Erreur lors du chargement des reservations", e);
+            mv.addData("error", "Erreur lors du chargement des réservations : " + e.getMessage());
         }
-
-        return reservations;
+        mv.addData("reservations", reservations);
+        mv.addData("count", reservations.size());
+        return mv;
     }
 }

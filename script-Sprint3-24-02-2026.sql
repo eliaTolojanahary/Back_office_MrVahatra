@@ -1,4 +1,99 @@
 -- =========================
+-- Table HOTEL (Sprint 3, pour cohérence avec reservation)
+-- =========================
+
+DROP TABLE IF EXISTS hotel CASCADE;
+CREATE TABLE hotel (
+    id SERIAL PRIMARY KEY,
+    nom VARCHAR(200) NOT NULL,
+    adresse TEXT NOT NULL
+);
+
+-- =========================
+-- Données de test pour HOTEL
+-- =========================
+
+INSERT INTO hotel (nom, adresse) VALUES
+('Hotel Colbert Antananarivo', 'Rue Prince Ratsimamanga, Antananarivo'),
+('Carlton Madagascar', 'Anosy, Antananarivo'),
+('Hotel Le Louvre', 'Lalana Rainandriamampandry, Antananarivo'),
+('Palissandre Hotel', 'Ivandry, Antananarivo'),
+('Radisson Blu Waterfront', 'Rue Solombavambahoaka, Antananarivo'),
+('Hotel Sakamanga', 'Rue Andriandahifotsy, Antananarivo'),
+('Hotel Belvedere', 'Route dAnkadimbahoaka, Antananarivo'),
+('Hotel La Ribaudiere', 'Route de lUniversite, Antananarivo'),
+('Hotel Tana Plaza', 'Avenue de lIndependance, Antananarivo'),
+('Hotel Sunny', 'Rue Rainibetsimisaraka, Antananarivo');
+
+-- =========================
+
+-- =========================
+-- Table RESERVATION (structure Sprint 1)
+-- =========================
+
+DROP TABLE IF EXISTS reservation CASCADE;
+CREATE TABLE reservation (
+    id SERIAL PRIMARY KEY,
+    client VARCHAR(100) NOT NULL,
+    id_hotel INTEGER NOT NULL,
+    nb_passager INTEGER NOT NULL CHECK (nb_passager > 0),
+    date_heure_depart TIMESTAMP NOT NULL,
+    CONSTRAINT fk_reservation_hotel
+        FOREIGN KEY (id_hotel)
+        REFERENCES hotel(id)
+);
+
+-- =========================
+-- Données de test pour RESERVATION
+-- =========================
+
+-- Réservations pour le 24-02-2026 (pour tester la planification)
+INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUES
+('Jean Rakoto', 1, 4, '2026-02-24 08:30:00'),        -- 4 passagers -> Hotel Colbert
+('Marie Randria', 10, 1, '2026-02-24 09:00:00'),     -- 1 passager -> Hotel Sunny
+('Paul Andrian', 3, 3, '2026-02-24 10:15:00'),       -- 3 passagers -> Hotel Le Louvre
+('Sophie Raja', 5, 2, '2026-02-24 11:00:00'),        -- 2 passagers -> Radisson
+('Hery Rabe', 6, 5, '2026-02-24 12:30:00'),          -- 5 passagers -> Sakamanga
+('Lanto Razaf', 2, 2, '2026-02-24 13:45:00'),        -- 2 passagers -> Carlton
+('Nivo Andriana', 7, 1, '2026-02-24 14:00:00'),      -- 1 passager -> Belvedere
+('Faly Ramanana', 4, 6, '2026-02-24 15:30:00');      -- 6 passagers -> Palissandre (ne pourra pas être assigné si pas assez de véhicules)
+
+-- Réservations pour le 25-02-2026 (autre date)
+INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUES
+('Tsiky Raveloson', 8, 3, '2026-02-25 09:00:00'),
+('Diary Rafenohery', 9, 2, '2026-02-25 10:30:00');
+
+-- =========================
+-- Table VEHICULE
+-- =========================
+    
+DROP TABLE IF EXISTS vehicule CASCADE;
+CREATE TABLE vehicule (
+    id SERIAL PRIMARY KEY,
+    reference VARCHAR(50) NOT NULL UNIQUE,
+    place INTEGER NOT NULL CHECK (place > 0),
+    type_carburant VARCHAR(20) NOT NULL CHECK (type_carburant IN ('diesel', 'essence', 'Diesel', 'Essence'))
+);
+
+-- =========================
+-- Données de test pour VEHICULE
+-- =========================
+
+-- Véhicules avec différentes configurations pour tester les règles métier
+INSERT INTO vehicule (reference, place, type_carburant) VALUES
+('VH-001', 4, 'diesel'),     -- 4 places diesel
+('VH-002', 4, 'essence'),    -- 4 places essence (moins prioritaire que VH-001)
+('VH-003', 2, 'diesel'),     -- 2 places diesel
+('VH-004', 5, 'diesel'),     -- 5 places diesel
+('VH-005', 5, 'essence'),    -- 5 places essence (moins prioritaire que VH-004)
+('VH-006', 3, 'diesel'),     -- 3 places diesel
+('VH-007', 7, 'diesel');     -- 7 places diesel (pour grands groupes)
+
+-- Configuration pour tester :
+-- - VH-001 et VH-002 (même places, diesel prioritaire)
+-- - VH-004 et VH-005 (même places, diesel prioritaire)
+-- - Pas assez de véhicules pour toutes les réservations du 24-02 (8 réservations, 7 véhicules)
+-- =========================
 -- SCRIPT DE CRÉATION - Sprint 3
 -- Date: 24-02-2026
 -- =========================

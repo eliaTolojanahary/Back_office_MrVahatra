@@ -5,6 +5,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <meta charset="UTF-8">
     <title>Réservations - <%= request.getAttribute("datePlanning") %></title>
     <style>
@@ -88,6 +89,8 @@
             text-align: center;
             cursor: pointer;
             font-size: 16px;
+            border: none;
+            font-family: Arial, sans-serif;
         }
         .btn-primary {
             background-color: #4CAF50;
@@ -130,14 +133,15 @@
 </head>
 <body>
     <div class="container">
-        <h1><span style="font-size:1.2em;vertical-align:middle;" class="material-icons">assignment</span> Réservations du <%= request.getAttribute("datePlanning") %></h1>
-        
         <% 
             List<Reservation> reservations = (List<Reservation>) request.getAttribute("reservations");
             Integer count = (Integer) request.getAttribute("count");
-            <!-- PlanningConfig config = (PlanningConfig) request.getAttribute("config"); -->
+            PlanningConfig planning_config = (PlanningConfig) request.getAttribute("config");
             String error = (String) request.getAttribute("error");
+            String datePlanning = (String) request.getAttribute("datePlanning");
         %>
+        
+        <h1><span style="font-size:1.2em;vertical-align:middle;" class="material-icons">assignment</span> Réservations du <%= datePlanning %></h1>
         
         <% if (error != null) { %>
             <div class="error">
@@ -149,7 +153,7 @@
                     <div class="info-label">Nombre de réservations</div>
                     <div class="info-value"><%= count != null ? count : 0 %></div>
                 </div>
-                <% if (config != null) { %>
+                <% if (planning_config != null) { %>
                 <div class="info-item">
                     <div class="info-label">Vitesse Moyenne</div>
                     <div class="info-value"><%= planning_config.getVitesseMoyenne() %> km/h</div>
@@ -188,21 +192,23 @@
                 </table>
             <% } else { %>
                 <div class="no-data">
-                    📭 Aucune réservation trouvée pour cette date
+                    <span class="material-icons" style="font-size:1.2em;vertical-align:middle;">mail</span> Aucune réservation trouvée pour cette date
                 </div>
             <% } %>
         <% } %>
         
         <div class="button-group">
             <% if (reservations != null && !reservations.isEmpty()) { %>
-                <a href="<%= request.getContextPath() %>/planning/planifier?date=<%= request.getAttribute("datePlanning") %>" 
-                   class="btn btn-primary">
-                    🚀 Accéder à la Planification (PAGE 2)
-                </a>
+                <form action="<%= request.getContextPath() %>/planning/result" method="POST" style="display:inline;">
+                    <input type="hidden" name="datePlanning" value="<%= datePlanning %>">
+                    <button type="submit" class="btn btn-primary">
+                        <span class="material-icons" style="font-size:1.2em;vertical-align:middle;">event_available</span> Calculer la Planification
+                    </button>
+                </form>
             <% } %>
             <a href="<%= request.getContextPath() %>/planning/selection-date" 
                class="btn btn-secondary">
-                ◀️ Changer de Date
+                <span class="material-icons" style="font-size:1.2em;vertical-align:middle;">arrow_back</span> Changer de Date
             </a>
         </div>
     </div>

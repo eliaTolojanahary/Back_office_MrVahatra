@@ -84,7 +84,6 @@ Base :
 
 
 Qui : Mir
-
 --------------------------------------------------
 
 PAGE 2 — PLANIFICATION BACKOFFICE (Manoa)
@@ -138,5 +137,3 @@ Base :
 - hotel
 
 Qui : Manoa
-
-
