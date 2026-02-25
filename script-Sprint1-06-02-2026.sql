@@ -7,6 +7,9 @@
 -- Table HOTEL
 -- =========================
 
+DROP TABLE IF EXISTS hotel CASCADE;
+
+DROP TABLE IF EXISTS reservation CASCADE;
 CREATE TABLE hotel (
     id SERIAL PRIMARY KEY,
     nom VARCHAR(200) NOT NULL,
@@ -44,3 +47,15 @@ INSERT INTO hotel (nom, adresse) VALUES
 ('Hotel La Ribaudiere', 'Route de l''Université, Antananarivo, Madagascar'),
 ('Hotel Tana Plaza', 'Rue Patrice Lumumba, Antananarivo, Madagascar'),
 ('Hotel Sunny', 'Analakely, Antananarivo, Madagascar');
+('Hotel analamfange', 'analakely', Antananarivo, Madagascar);
+('Hotel les 3 Metis', 'Analakely, Antananarivo, Madagascar');
+("Hotl qui a ")
+('Hotel Colbert Antananarivo', 'Amboditsiry, Antananarivo, Madagascar');
+('Hotel Carlton Madagascar', 'Anosy, Antananarivo, Madagascar');
+('Hotel Le Louvre', 'Avenue de l''Indépendance, Antananarivo, Madagascar');
+('Hotel Palissandre Hotel', 'Ivandry, Antananarivo, Madagascar');
+('Hotel Radisson Blu Waterfront', 'Ambodivona, Antananarivo, Madagascar');
+('Hotel Sakamanga', 'Rue Ratsimilaho, Antananarivo, Madagascar');
+('Hotel Belvedere', 'Route d''Andraisoro, Antananarivo, Madagascar');
+('Hotel La Ribaudiere', 'Route de l''Université, Antananarivo, Madagascar');
+('Hotel Tana Plaza', 'Rue Patrice Lumumba, Antananarivo, Madagascar');

@@ -1,0 +1,139 @@
+
+
+Sprint 3 24/02/2026
+TL : Tolojanahary Elia Nantenanaina ETU003230
+BackOffice :    Rahajarijaona Mir ETU003132 (branche sprint/3/feature/SelectionDatePlannification)
+                RasolofoHarilala Sandaniaina Manoa ETU003200 (branche sprint/3/feature/PlannificationReservation)
+
+Métier :
+- Définir la logique globale de planification :
+    - Calcul du temps de trajet = distance / vitesse moyenne
+    - Gestion du temps d’attente
+    - Client inseparable
+    - Choisir le véhicule avec le nombre de places minimal mais >= nombre de passagers
+    - Si plusieurs véhicules :
+        - Priorité diesel sur essence
+        - Si égalité → random
+
+    - Ordre des lieux :
+        - Commencer par le lieu le plus proche de l’aéroport
+        - Puis le plus proche du lieu précédent
+
+--------------------------------------------------
+
+PAGE 1 — BACKOFFICE PLANNING (Mir)
+
+SCRIPT BASE DE DONNEES :
+Affichage : Aucun
+Métier :
+- Script de réinitialisation des données de test
+
+Tables :
+
+Table lieu
+id SERIAL
+code VARCHAR
+libelle VARCHAR
+
+Exemple :
+1 | tnr | ivato aeroport
+
+
+Table distance
+id SERIAL
+from_lieu INT
+to_lieu INT
+km INT
+
+Règle :
+- Ne pas créer les couples symétriques (ex : pas besoin de 7,3 si 3,7 existe)
+
+----------------------------------------------------------------
+PARAMETRES SYSTEME PLANNING:
+Affichage :
+- Formulaire d’insertion des paramètres :
+    - vitesse moyenne (km/h)
+    - temps d’attente (min)
+
+Métier :
+- Stocker les paramètres globaux de planification
+
+Base :
+- planning_config 
+
+-----------------------------------------------------------
+
+Affichage :
+- Interface qui prend en paramètre une date de planification
+- Bouton pour accéder à la page planification
+
+Métier :
+Classes :
+- PlanningController
+- Planning
+
+Fonctions :
+- List<Reservation> getReservationsByDate(DateTime date)
+- PlanningResult planifierReservations(DateTime date)
+
+Base :
+- reservation
+- vehicule
+- distance
+- lieu
+
+
+Qui : Mir
+--------------------------------------------------
+
+PAGE 2 — PLANIFICATION BACKOFFICE (Manoa)
+
+Affichage :
+- Liste des réservations non assignées et liste des réservations planifiées :
+        Tableau :
+        - id
+        - client
+        - nombre passager
+        - date heure arrivée
+        - hotel
+        - vehicule assigné
+
+        Filtre :
+        - DateTime
+
+Tableau planning :
+- Véhicule associé
+- Heure de départ (aéroport)
+- Heure d’arrivée (aéroport)
+- Destination
+- Ordre chronologique croissant
+
+Métier :
+
+Classes :
+- Planning
+- Vehicule
+- Distance
+- ReservationViewController
+
+Fonctions :
+- Calcul distance entre hôtel et aéroport
+- Calcul temps trajet :
+    temps = distance / vitesse_moyenne 
+
+- Assignation automatique du véhicule selon les règles :
+    - Client inseparable
+    - Nb places véhicule >= nb passagers
+    - Si plusieurs véhicules :
+        - Priorité diesel > essence
+        - Sinon random
+- List<ReservationDTO> getPlanningByDate(DateTime datetime)
+
+Base :
+- distance : id, from_lieu, to_lieu, km
+- lieu : id, code, libelle
+- reservation
+- vehicule
+- hotel
+
+Qui : Manoa
