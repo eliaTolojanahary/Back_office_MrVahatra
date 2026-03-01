@@ -1,15 +1,15 @@
 package controllers;
 
-import annotation.MethodeAnnotation;
-import annotation.GetMapping;
-import annotation.PostMapping;
 import annotation.ClasseAnnotation;
-import modelview.ModelView;
-import models.*;
-import util.DatabaseConnection;
+import annotation.GetMapping;
+import annotation.MethodeAnnotation;
+import annotation.PostMapping;
 import java.sql.*;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
+import models.*;
+import modelview.ModelView;
+import util.DatabaseConnection;
 
 @ClasseAnnotation("/planning")
 public class PlanningController {
