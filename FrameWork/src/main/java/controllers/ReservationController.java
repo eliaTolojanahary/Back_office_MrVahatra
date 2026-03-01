@@ -1,18 +1,17 @@
 package controllers;
 
-import annotation.MethodeAnnotation;
-import annotation.GetMapping;
-import annotation.PostMapping;
 import annotation.ClasseAnnotation;
-import annotation.Api;
-import modelview.ModelView;
-import models.Reservation;
-import models.Hotel;
-import util.DatabaseConnection;
+import annotation.GetMapping;
+import annotation.MethodeAnnotation;
+import annotation.PostMapping;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import models.Hotel;
+import models.Reservation;
+import modelview.ModelView;
+import util.DatabaseConnection;
+
 @ClasseAnnotation("/reservation")
 public class ReservationController {
     
@@ -99,7 +98,13 @@ public class ReservationController {
                 reservations.add(r);
             }
         } catch (SQLException e) {
-            mv.addData("error", "Erreur lors du chargement des réservations : " + e.getMessage());
+            System.err.println("==== ERREUR SQL dans getAllReservations ====");
+            e.printStackTrace();
+            mv.addData("error", "Erreur SQL: " + e.getMessage() + " | Cause: " + e.getCause());
+        } catch (Exception e) {
+            System.err.println("==== ERREUR GENERALE dans getAllReservations ====");
+            e.printStackTrace();
+            mv.addData("error", "Erreur: " + e.getClass().getName() + " - " + e.getMessage());
         }
         mv.addData("reservations", reservations);
         mv.addData("count", reservations.size());
