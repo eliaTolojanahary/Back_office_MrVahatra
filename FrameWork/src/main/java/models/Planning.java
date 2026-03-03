@@ -130,7 +130,7 @@ public class Planning {
              ResultSet rs = stmt.executeQuery()) {
             
             if (rs.next()) {
-                return new PlanningConfig(
+                return PlanningConfig.fromDatabase(
                     rs.getInt("id"),
                     rs.getDouble("vitesse_moyenne"),
                     rs.getInt("temps_attente"),
@@ -141,7 +141,7 @@ public class Planning {
         }
         
         // Config par défaut si aucune n'existe
-        return new PlanningConfig(0, 40.0, 15, null, true);
+        return PlanningConfig.fromDatabase(0, 40.0, 15, null, true);
     }
     
     /**
