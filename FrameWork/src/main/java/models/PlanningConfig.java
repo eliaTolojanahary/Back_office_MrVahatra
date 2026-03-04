@@ -21,12 +21,20 @@ public class PlanningConfig {
         this.isActive = true;
     }
     
-    public PlanningConfig(int id, double vitesseMoyenne, int tempsAttente, Timestamp dateCreation, boolean isActive) {
+    // Constructeur privé pour la création depuis la base de données uniquement
+    private PlanningConfig(int id, double vitesseMoyenne, int tempsAttente, Timestamp dateCreation, boolean isActive) {
         this.id = id;
         this.vitesseMoyenne = vitesseMoyenne;
         this.tempsAttente = tempsAttente;
         this.dateCreation = dateCreation;
         this.isActive = isActive;
+    }
+    
+    /**
+     * Factory method pour créer une instance depuis la base de données
+     */
+    public static PlanningConfig fromDatabase(int id, double vitesseMoyenne, int tempsAttente, Timestamp dateCreation, boolean isActive) {
+        return new PlanningConfig(id, vitesseMoyenne, tempsAttente, dateCreation, isActive);
     }
     
     // Getters

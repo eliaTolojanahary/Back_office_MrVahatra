@@ -100,11 +100,11 @@
             <div class="result-box">
                 <div class="result-item">
                     <span class="result-label">Vitesse Moyenne :</span> 
-                    <%= config.getVitesseMoyenne() %> km/h
+                    <%= planning_config.getVitesseMoyenne() %> km/h
                 </div>
                 <div class="result-item">
                     <span class="result-label">Temps d'Attente :</span> 
-                    <%= config.getTempsAttente() %> minutes
+                    <%= planning_config.getTempsAttente() %> minutes
                 </div>
             </div>
         <% } else { %>
