@@ -3,7 +3,7 @@ rem --- Configuration des chemins (ne pas inclure de guillemets dans la valeur) 
 set "PROJECT_PATH=%~dp0"
 set "BUILD_PATH=%PROJECT_PATH%build"
 set "WEBAPP_PATH=%PROJECT_PATH%src\main\webapp"
-set "CATALINA_HOME=C:\xampp\tomcat"
+set "CATALINA_HOME=C:\apache-tomcat-8.5.96"
 set "LIB_PATH=%PROJECT_PATH%lib"
 
 rem Vérifier si le dossier "build" existe et le supprimer

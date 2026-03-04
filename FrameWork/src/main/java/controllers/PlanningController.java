@@ -320,4 +320,11 @@ public class PlanningController {
         
         return mv;
     }
+
+    @MethodeAnnotation("/planning/vehicule-info")
+    @GetMapping
+    public ModelView getVehiculePlanningInfo() {
+        ModelView mv = new ModelView("/vehiculeDetails.jsp");        
+        return mv;
+    }
 }
