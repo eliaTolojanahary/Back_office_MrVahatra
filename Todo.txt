@@ -83,6 +83,7 @@ Créer la page qui peremt d'afficher la liste des réservation
     Qui : Manoa
     Description: Créer un page qui permet d'afficher la liste des réservations avec un filtre par dateTime , et qui va utiliser L'API du backOffice pour récupérer les donnée
 
+-------------------------------------------------------------------------------------------------------------------------------------------------------
 
 Sprint2
 TL : RasolofoHarilala Sandaniaina Manoa ETU003200
@@ -105,4 +106,192 @@ CRUD Vehicule
         Fonction : boolean create (Vehicule vehicule), boolean delete (int id_vehicule), Vehicule update (Vehicule Vehicule), List<Vehicule> getAll()
     Base : Vehicule
     Qui : Elia
+
+--------------------------------    
     
+
+
+Sprint 3 24/02/2026
+TL : Tolojanahary Elia Nantenanaina ETU003230
+BackOffice :    Rahajarijaona Mir ETU003132 (branche sprint/3/feature/SelectionDatePlannification)
+                RasolofoHarilala Sandaniaina Manoa ETU003200 (branche sprint/3/feature/PlannificationReservation)
+
+Métier :
+- Définir la logique globale de planification :
+    - Calcul du temps de trajet = distance / vitesse moyenne
+    - Gestion du temps d’attente
+    - Client inseparable
+    - Choisir le véhicule avec le nombre de places minimal mais >= nombre de passagers
+    - Si plusieurs véhicules :
+        - Priorité diesel sur essence
+        - Si égalité → random
+
+    - Ordre des lieux :
+        - Commencer par le lieu le plus proche de l’aéroport
+        - Puis le plus proche du lieu précédent
+
+--------------------------------------------------
+
+PAGE 1 — BACKOFFICE PLANNING (Mir)
+
+SCRIPT BASE DE DONNEES :
+Affichage : Aucun
+Métier :
+- Script de réinitialisation des données de test
+
+Tables :
+
+Table lieu
+id SERIAL
+code VARCHAR
+libelle VARCHAR
+
+Exemple :
+1 | tnr | ivato aeroport
+
+
+Table distance
+id SERIAL
+from_lieu INT
+to_lieu INT
+km INT
+
+Règle :
+- Ne pas créer les couples symétriques (ex : pas besoin de 7,3 si 3,7 existe)
+
+----------------------------------------------------------------
+PARAMETRES SYSTEME PLANNING:
+Affichage :
+- Formulaire d’insertion des paramètres :
+    - vitesse moyenne (km/h)
+    - temps d’attente (min)
+
+Métier :
+- Stocker les paramètres globaux de planification
+
+Base :
+- planning_config 
+
+-----------------------------------------------------------
+
+Affichage :
+- Interface qui prend en paramètre une date de planification
+- Bouton pour accéder à la page planification
+
+Métier :
+Classes :
+- PlanningController
+- Planning
+
+Fonctions :
+- List<Reservation> getReservationsByDate(DateTime date)
+- PlanningResult planifierReservations(DateTime date)
+
+Base :
+- reservation
+- vehicule
+- distance
+- lieu
+
+
+Qui : Mir
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Sprint3
+
+PAGE 2 — PLANIFICATION BACKOFFICE (Manoa)
+
+Affichage :
+- Liste des réservations non assignées et liste des réservations planifiées :
+        Tableau :
+        - id
+        - client
+        - nombre passager
+        - date heure arrivée
+        - hotel
+        - vehicule assigné
+
+        Filtre :
+        - DateTime
+
+Tableau planning :
+- Véhicule associé
+- Heure de départ (aéroport)
+- Heure d’arrivée (aéroport)
+- Destination
+- Ordre chronologique croissant
+
+Métier :
+
+Classes :
+- Planning
+- Vehicule
+- Distance
+- ReservationViewController
+
+Fonctions :
+- Calcul distance entre hôtel et aéroport
+- Calcul temps trajet :
+    temps = distance / vitesse_moyenne 
+
+- Assignation automatique du véhicule selon les règles :
+    - Client inseparable
+    - Nb places véhicule >= nb passagers
+    - Si plusieurs véhicules :
+        - Priorité diesel > essence
+        - Sinon random
+- List<ReservationDTO> getPlanningByDate(DateTime datetime)
+
+Base :
+- distance : id, from_lieu, to_lieu, km
+- lieu : id, code, libelle
+- reservation
+- vehicule
+- hotel
+
+Qui : Manoa
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Sprint 4 04/03/2026
+TL : Rahajarijaona Mir ETU003132
+BackOffice : Tolojanahary Elia Nantenanaina ETU003230
+FrontOffice : RasolofoHarilala Sandaniaina Manoa ETU003200
+
+Modifier la page plannification pour ajouter les nouvelles règles de gestion:
+	Affichage : 
+		1. Ajouter deux nouvelles colonnes : id_vehicule, date_heure de depart (le depart du vehicule depuis l'aéroport)
+		2. Modifié le contenu de la colonne date_heure_arrivé pour être la date_heure retour : cela va être la date heure retour du vehicule à l'aéroport
+		3. Dans la colonne client, on va mettre tous les noms des clients qui sont assignés à ce vehicule : on va les enuméré verticalement
+	Métier :
+		Classe : Planning (Controller, Service)
+		Fonction : getFormPlanningConfig()
+	Base : reservation, vehicule, parametre, client
+	Description :  règles de gestion : 
+		1. Un vehicule peux avoir plusieur clients à la fois si le nombre de place est suffisant
+		2. On va d'abord traité les clients qui ont le plus de passagers et si le vehicule n'est pas encore plein, on va alors rechercher si il y a encore des clients qui peuvent toujours être assigné à ce même vehiucle
+		3. Les clients qui sont le plus proche de l'aéroport sont traité en premier
+		4. Puis, si il y avait plusieurs clients dans le même vehixule, ce sont les clients qui ont le lieux le plus porches de l'ancien lieu (hotel) qui vont être traité en premier
+	Qui : Elia
+	
+Ajouter une nouvelle page detail_vehicule :
+	Affichage : 
+		1. L'id du vehicule
+		2. La date et heure d'arrivé de chaque client dans son hotel
+		3. Le nombre de passager de chaque cleint
+		4. La distance total parcourue par le vehicule
+		5. La distance entre chaque lieu
+	Métier :
+		Classe : Planning (Controller, Service)
+		Fonction : 
+			1. getVehiculePlanningInfo()
+	Base : distance, lieu, client, planning, reservation
+	Description : Créer une page détails pour pouvoir voir les détail concernant le vehicule, pour y accéder, on va cliquer sur l'id du vehicule dans le tableau de plannification
+	Qui: Manoa
+	
+Créer le script (actuel) pour les données de teste 
+	Affichage : 
+	Métier :
+	Base : distance, lieu, client, planning, reservation
+	Qui : Manoa
