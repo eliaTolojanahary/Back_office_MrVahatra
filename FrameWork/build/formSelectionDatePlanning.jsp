@@ -119,6 +119,14 @@
             var today = new Date().toISOString().split('T')[0];
             document.getElementById('datePlanning').value = today;
         }
+        
+        // Soumettre le formulaire quand la date est changée
+        function submitDateForm() {
+            var dateInput = document.getElementById('datePlanning').value;
+            if (dateInput) {
+                document.getElementById('dateForm').submit();
+            }
+        }
     </script>
 </head>
 <body>
@@ -147,20 +155,21 @@
             </div>
         <% } %>
         
-        <form action="<%= request.getContextPath() %>/planning/reservations-by-date" method="POST">
+        <form id="dateForm" action="<%= request.getContextPath() %>/planning/result" method="POST">
             <div class="form-group">
                 <label for="datePlanning"><span style="font-size:1.2em;vertical-align:middle;" class="material-icons">event</span> Sélectionnez la date de planification :</label>
                 <input type="date" 
                        id="datePlanning" 
                        name="datePlanning" 
+                       onchange="submitDateForm()"
                        required>
                 <div class="info-text">
-                    Toutes les réservations pour cette date seront affichées
+                    La planification se lance automatiquement quand vous changez la date
                 </div>
             </div>
             
-            <button type="submit" class="btn-submit">
-                <span style="font-size:1.2em;vertical-align:middle;" class="material-icons">search</span> Voir les Réservations & Accéder à la Planification
+            <button type="submit" class="btn-submit" style="display:none;">
+                <span style="font-size:1.2em;vertical-align:middle;" class="material-icons">search</span> Lancer la Planification
             </button>
         </form>
         
