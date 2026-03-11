@@ -28,3 +28,5 @@ apache-tomcat*/
 .DS_Store
 Thumbs.db
 
+# Connexion à a base de donnée
+Framework/src/main/java/util/DatabaseConnection
