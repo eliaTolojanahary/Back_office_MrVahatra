@@ -26,8 +26,8 @@ DELETE FROM reservation WHERE date_heure_depart >= '2026-03-04';
 -- TOUS LES CLIENTS ARRIVENT À 14:00 LE 04-03-2026
 INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUES
 -- Groupe 1: Clients avec beaucoup de passagers (à assigner ensemble)
-('Rakoto Jean', 1, 4, '2026-03-04 14:00:00'),         -- 4 passagers -> Hotel Colbert (15.5 km)
-('Randria Marie', 10, 2, '2026-03-04 14:00:00'),      -- 2 passagers -> Hotel Sunny (13.9 km) - peut partager avec Jean (4+2=6)
+('Rakoto Jean',1,4,'2026-03-04 14:00:00'),         -- 4 passagers -> Hotel Colbert (15.5 km)
+('Randria Marie', 10, 2,'2026-03-04 14:00:00'),      -- 2 passagers -> Hotel Sunny (13.9 km) - peut partager avec Jean (4+2=6)
 
 -- Groupe 2: Client moyen et clients légers
 ('Andriana Paul', 3, 3, '2026-03-04 11:00:00'),       -- 3 passagers -> Hotel Le Louvre (14.8 km)
@@ -124,15 +124,7 @@ SELECT SUM(nb_passager) as 'Total passagers'
 FROM reservation 
 WHERE DATE(date_heure_depart) = '2026-03-04';
 
--- Réservations triées par nombre de passagers (ordre de traitement)
-SELECT 
-    client, 
-    nb_passager, 
-    (SELECT libelle FROM hotel h WHERE h.id = reservation.id_hotel) as hotel,
-    date_heure_depart
-FROM reservation 
-WHERE DATE(date_heure_depart) = '2026-03-04'
-ORDER BY nb_passager DESC, date_heure_depart ASC;
+--   SELECT client, nb_passager, (SELECT libelle FROM hotel h WHERE h.id = reservation.id_hotel) as hotel,date_heure_depart FROM reservation WHERE DATE(date_heure_depart) = '2026-03-04' ORDER BY nb_passager DESC, date_heure_depart ASC;
 
 -- =========================
 -- FIN SCRIPT SPRINT 4
