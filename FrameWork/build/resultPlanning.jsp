@@ -22,6 +22,26 @@
         .badge-assigned { background-color: #C8E6C9; color: #2E7D32; }
         .malagasy { color: #1976D2; font-size: 14px; font-style: italic; }
         .francais { color: #555; font-size: 14px; }
+<<<<<<< Updated upstream
+=======
+        .client-list { list-style-type: none; padding: 0; margin: 0; }
+        .client-list li { padding: 5px 0; border-bottom: 1px dotted #ccc; }
+        .client-list li:last-child { border-bottom: none; }
+        .client-name { font-weight: bold; color: #333; }
+        .client-details { font-size: 12px; color: #666; }
+        .vehicle-id { font-weight: bold; color: #2196F3; }
+        .vehicle-id-link { 
+            background: none; 
+            border: none; 
+            color: #2196F3; 
+            text-decoration: underline; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 14px; 
+            padding: 0; 
+        }
+        .vehicle-id-link:hover { color: #1976D2; }
+>>>>>>> Stashed changes
     </style>
 </head>
 <body>
@@ -44,6 +64,7 @@
                     </tr>
                 </thead>
                 <tbody>
+<<<<<<< Updated upstream
                     <% List<ReservationDTO> assigned = (List<ReservationDTO>) request.getAttribute("assigned");
                        if (assigned != null && !assigned.isEmpty()) {
                            for (ReservationDTO r : assigned) { %>
@@ -57,6 +78,38 @@
                             <td><%= r.getLieuArrivee() %></td>
                             <td><%= r.getNbPassager() %></td>
                             <td><span class="badge badge-assigned">Assignée / <span class="malagasy">Voatokana</span></span></td>
+=======
+                    <% List<VehiclePlanningDTO> plannings = (List<VehiclePlanningDTO>) request.getAttribute("plannings");
+                       String datePlanning = (String) request.getAttribute("datePlanning");
+                       if (plannings != null && !plannings.isEmpty()) {
+                           for (VehiclePlanningDTO planning : plannings) { %>
+                        <tr>
+                            <td class="vehicle-id">
+                                <form action="<%= request.getContextPath() %>/planning/vehicule-detail" method="post" style="display: inline; margin: 0;">
+                                    <input type="hidden" name="idVehicule" value="<%= planning.getIdVehicule() %>">
+                                    <input type="hidden" name="datePlanning" value="<%= datePlanning != null ? datePlanning : "" %>">
+                                    <button type="submit" class="vehicle-id-link" title="Voir les détails du véhicule"><%= planning.getIdVehicule() %></button>
+                                </form>
+                            </td>
+                            <td><%= planning.getReferenceVehicule() %></td>
+                            <td>
+                                <ul class="client-list">
+                                    <% for (models.ClientInfo client : planning.getClients()) { %>
+                                        <li>
+                                            <span class="client-name"><%= client.getNomClient() %></span><br/>
+                                            <span class="client-details">
+                                                <%= client.getNbPassager() %> passager(s) - 
+                                                <%= client.getHotel() %><br/>
+                                                Arrivée: <%= client.getHeureArriveeHotel() %>
+                                            </span>
+                                        </li>
+                                    <% } %>
+                                </ul>
+                            </td>
+                            <td><%= planning.getDateHeureDepart() %></td>
+                            <td><%= planning.getDateHeureRetour() %></td>
+                            <td><%= planning.getPlacesOccupees() %> / <%= planning.getPlacesTotales() %></td>
+>>>>>>> Stashed changes
                         </tr>
                     <%   }
                        } else { %>
