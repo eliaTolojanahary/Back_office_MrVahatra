@@ -29,4 +29,4 @@ apache-tomcat*/
 Thumbs.db
 
 # Connexion à a base de donnée
-Framework/src/main/java/util/DatabaseConnection
+Framework/src/main/java/util/DatabaseConnection.java
