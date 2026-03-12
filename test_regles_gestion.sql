@@ -5,6 +5,178 @@
 -- =========================================================================================
 
 -- =========================================================================================
+-- CRÉATION DES HÔTELS
+-- =========================================================================================
+-- IMPORTANT: Exécuter cette section UNE SEULE FOIS pour créer les hôtels
+-- Si les hôtels existent déjà, commenter cette section
+
+-- Supprimer les anciens hôtels de test (optionnel - attention aux contraintes FK)
+-- DELETE FROM hotel WHERE nom LIKE '%Colbert%' OR nom LIKE '%Carlton%' OR nom LIKE '%Louvre%';
+
+-- Création des 10 hôtels pour les tests
+INSERT INTO hotel (nom, adresse) VALUES
+('Hotel Colbert Antananarivo', 'Rue Prince Ratsimamanga, Antananarivo'),
+('Carlton Madagascar', 'Anosy, Antananarivo'),
+('Hotel Le Louvre', 'Lalana Rainandriamampandry, Antananarivo'),
+('Palissandre Hotel', 'Ivandry, Antananarivo'),
+('Radisson Blu Waterfront', 'Rue Solombavambahoaka, Antananarivo'),
+('Hotel Sakamanga', 'Rue Andriandahifotsy, Antananarivo'),
+('Hotel Belvedere', 'Route dAnkadimbahoaka, Antananarivo'),
+('Hotel La Ribaudiere', 'Route de lUniversite, Antananarivo'),
+('Hotel Tana Plaza', 'Avenue de lIndependance, Antananarivo'),
+('Hotel Sunny', 'Rue Rainibetsimisaraka, Antananarivo');
+
+-- Vérifier la création des hôtels
+SELECT * FROM hotel ORDER BY nom;
+
+-- =========================================================================================
+-- CRÉATION DES LIEUX (AÉROPORT + HÔTELS)
+-- =========================================================================================
+-- IMPORTANT: Exécuter cette section UNE SEULE FOIS pour créer les lieux
+-- Si les lieux existent déjà, commenter cette section
+
+-- Supprimer les anciens lieux de test (optionnel - attention aux contraintes FK)
+-- DELETE FROM lieu WHERE code IN ('IVATO', 'COLBERT', 'CARLTON', 'LOUVRE', 'PALISSANDRE', 'RADISSON', 'SAKAMANGA', 'BELVEDERE', 'RIBAUDIERE', 'TANAPLAZA', 'SUNNY');
+
+-- Création de l'aéroport
+INSERT INTO lieu (code, libelle) VALUES
+('IVATO', 'Aéroport International Ivato');
+
+-- Création des lieux correspondant aux hôtels
+INSERT INTO lieu (code, libelle) VALUES
+('COLBERT', 'Hotel Colbert Antananarivo'),
+('CARLTON', 'Carlton Madagascar'),
+('LOUVRE', 'Hotel Le Louvre'),
+('PALISSANDRE', 'Palissandre Hotel'),
+('RADISSON', 'Radisson Blu Waterfront'),
+('SAKAMANGA', 'Hotel Sakamanga'),
+('BELVEDERE', 'Hotel Belvedere'),
+('RIBAUDIERE', 'Hotel La Ribaudiere'),
+('TANAPLAZA', 'Hotel Tana Plaza'),
+('SUNNY', 'Hotel Sunny');
+
+-- Vérifier la création des lieux
+SELECT * FROM lieu ORDER BY code;
+
+-- =========================================================================================
+-- CRÉATION DES DISTANCES
+-- =========================================================================================
+-- IMPORTANT: Exécuter cette section UNE SEULE FOIS pour créer les distances
+-- Si les distances existent déjà, commenter cette section
+
+-- Supprimer les anciennes distances de test (optionnel)
+-- DELETE FROM distance WHERE from_lieu IN (SELECT id FROM lieu WHERE code IN ('IVATO', 'COLBERT', 'CARLTON', 'LOUVRE', 'PALISSANDRE', 'RADISSON', 'SAKAMANGA', 'BELVEDERE', 'RIBAUDIERE', 'TANAPLAZA', 'SUNNY'));
+
+-- Distances de l'aéroport Ivato vers tous les hôtels
+INSERT INTO distance (from_lieu, to_lieu, km) VALUES
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'COLBERT'), 15.5),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'CARLTON'), 16.2),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'LOUVRE'), 14.8),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'PALISSANDRE'), 18.3),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'RADISSON'), 16.7),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 15.1),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'BELVEDERE'), 19.2),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 17.5),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 14.3),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 13.9),
+
+-- Distances entre hôtels (matrice complète)
+-- COLBERT vers autres hôtels
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'CARLTON'), 3.5),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'LOUVRE'), 2.1),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'PALISSANDRE'), 5.8),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'RADISSON'), 4.2),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 2.8),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'BELVEDERE'), 6.3),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 4.9),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 1.7),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 2.3),
+
+-- CARLTON vers autres hôtels (sauf COLBERT déjà fait)
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'LOUVRE'), 2.9),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'PALISSANDRE'), 6.1),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'RADISSON'), 1.8),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 3.2),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'BELVEDERE'), 7.1),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 5.3),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 2.6),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 3.8),
+
+-- LOUVRE vers autres hôtels (sauf COLBERT, CARLTON déjà faits)
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'PALISSANDRE'), 4.7),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'RADISSON'), 3.1),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 1.5),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'BELVEDERE'), 5.9),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 4.2),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 1.9),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 1.2),
+
+-- PALISSANDRE vers autres hôtels (sauf précédents)
+((SELECT id FROM lieu WHERE code = 'PALISSANDRE'), (SELECT id FROM lieu WHERE code = 'RADISSON'), 4.8),
+((SELECT id FROM lieu WHERE code = 'PALISSANDRE'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 5.3),
+((SELECT id FROM lieu WHERE code = 'PALISSANDRE'), (SELECT id FROM lieu WHERE code = 'BELVEDERE'), 3.2),
+((SELECT id FROM lieu WHERE code = 'PALISSANDRE'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 2.1),
+((SELECT id FROM lieu WHERE code = 'PALISSANDRE'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 6.5),
+((SELECT id FROM lieu WHERE code = 'PALISSANDRE'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 6.9),
+
+-- RADISSON vers autres hôtels (sauf précédents)
+((SELECT id FROM lieu WHERE code = 'RADISSON'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 3.7),
+((SELECT id FROM lieu WHERE code = 'RADISSON'), (SELECT id FROM lieu WHERE code = 'BELVEDERE'), 6.4),
+((SELECT id FROM lieu WHERE code = 'RADISSON'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 4.7),
+((SELECT id FROM lieu WHERE code = 'RADISSON'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 3.1),
+((SELECT id FROM lieu WHERE code = 'RADISSON'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 4.2),
+
+-- SAKAMANGA vers autres hôtels (sauf précédents)
+((SELECT id FROM lieu WHERE code = 'SAKAMANGA'), (SELECT id FROM lieu WHERE code = 'BELVEDERE'), 5.8),
+((SELECT id FROM lieu WHERE code = 'SAKAMANGA'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 3.9),
+((SELECT id FROM lieu WHERE code = 'SAKAMANGA'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 2.2),
+((SELECT id FROM lieu WHERE code = 'SAKAMANGA'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 1.8),
+
+-- BELVEDERE vers autres hôtels (sauf précédents)
+((SELECT id FROM lieu WHERE code = 'BELVEDERE'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 2.8),
+((SELECT id FROM lieu WHERE code = 'BELVEDERE'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 7.2),
+((SELECT id FROM lieu WHERE code = 'BELVEDERE'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 7.6),
+
+-- RIBAUDIERE vers autres hôtels (sauf précédents)
+((SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 5.4),
+((SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 5.9),
+
+-- TANAPLAZA vers dernier hôtel
+((SELECT id FROM lieu WHERE code = 'TANAPLAZA'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 0.9);
+
+-- Vérifier la création des distances
+SELECT 
+    ld.libelle as depart, 
+    la.libelle as arrivee, 
+    d.km as distance_km
+FROM distance d
+JOIN lieu ld ON d.from_lieu = ld.id
+JOIN lieu la ON d.to_lieu = la.id
+ORDER BY depart, arrivee;
+
+-- =========================================================================================
+-- CRÉATION DES VÉHICULES DE TEST
+-- =========================================================================================
+-- IMPORTANT: Exécuter ce script UNE SEULE FOIS pour créer les véhicules
+-- Si les véhicules existent déjà, commenter cette section
+
+-- Supprimer les anciens véhicules de test (optionnel - attention aux contraintes FK)
+-- DELETE FROM vehicule WHERE reference LIKE 'VH-%';
+
+-- Création des 7 véhicules pour les tests
+INSERT INTO vehicule (reference, place, type_carburant) VALUES
+('VH-001', 4, 'diesel'),     -- 4 places diesel
+('VH-002', 4, 'essence'),    -- 4 places essence (moins prioritaire que VH-001)
+('VH-003', 2, 'diesel'),     -- 2 places diesel
+('VH-004', 5, 'diesel'),     -- 5 places diesel
+('VH-005', 5, 'essence'),    -- 5 places essence (moins prioritaire que VH-004)
+('VH-006', 3, 'diesel'),     -- 3 places diesel
+('VH-007', 7, 'diesel');     -- 7 places diesel (pour grands groupes)
+
+-- Vérifier la création des véhicules
+SELECT * FROM vehicule WHERE reference LIKE 'VH-%' ORDER BY reference;
+
+-- =========================================================================================
 -- CONTEXTE DES TESTS
 -- =========================================================================================
 -- Véhicules disponibles (7 au total):
@@ -34,7 +206,7 @@ INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUE
 ('Rakoto Jean', 1, 6, '2026-03-11 10:00:00'),      -- 6 passagers -> Priorité 1
 ('Andriana Paul', 3, 5, '2026-03-11 10:00:00'),    -- 5 passagers -> Priorité 2
 ('Randria Marie', 2, 4, '2026-03-11 10:00:00');    -- 4 passagers -> Priorité 3
-
+    
 -- VÉRIFICATION TEST 1:
 -- Lancer le planning pour la date 2026-03-11
 -- Dans l'interface: /planning/result avec datePlanning = 2026-03-11
@@ -225,3 +397,29 @@ WHERE DATE(date_heure_depart) = '2026-03-11';
 -- =========================================================================================
 -- FIN DU SCRIPT DE TEST
 -- =========================================================================================
+
+
+
+-------------
+INSERT INTO vehicule (reference, place, type_carburant) VALUES
+('Vehicule001', 12, 'diesel'),     -- 4 places diesel
+('Vehicule002', 5, 'essence'),    -- 4 places essence (moins prioritaire que Vehicule001)
+('Vehicule003', 5, 'diesel'),     -- 2 places diesel
+('Vehicule004', 12, 'essence'),     -- 5 places diesel
+
+
+INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUES
+('Client1', 2, 7, '2026-03-12 09:00:00'),      -- 6 passagers -> Priorité 1
+('Client2', 2, 11, '2026-03-12 09:00:00'),    -- 5 passagers -> Priorité 2
+('Client3', 2, 3, '2026-03-12 09:00:00'),      -- 6 passagers -> Priorité 1
+('Client4', 2, 1, '2026-03-12 09:00:00'),      -- 6 passagers -> Priorité 1
+('Client5', 2, 2, '2026-03-12 09:00:00'),      -- 6 passagers -> Priorité 1
+('Client6', 2, 20, '2026-03-12 09:00:00'),      -- 6 passagers -> Priorité 1
+
+
+INSERT INTO lieu (code, libelle) VALUES
+('IVATO', 'Aéroport International Ivato');
+
+-- Création des lieux correspondant aux hôtels
+INSERT INTO lieu (code, libelle) VALUES
+('COLBERT', 'Hotel1'),

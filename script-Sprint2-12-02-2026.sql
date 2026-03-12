@@ -64,7 +64,7 @@ CREATE TABLE reservation (
 
     CONSTRAINT fk_reservation_hotel
         FOREIGN KEY (id_hotel)
-        REFERENCES hotel(id)
+        REFERENCES lieu(id)
 );
 
 -- =========================

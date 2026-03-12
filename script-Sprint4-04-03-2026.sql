@@ -1,131 +1,399 @@
--- =========================
--- SCRIPT DONNÉES DE TEST - Sprint 4
--- Date: 04-03-2026
--- Description: Nouvelles règles de gestion - Plusieurs clients par véhicule
--- Référence: Les données de Sprint 3 sont conservées et augmentées
--- =========================
+-- =========================================================================================
+-- SCRIPT DE TEST DES RÈGLES DE GESTION - Sprint 4
+-- Date: 11-03-2026
+-- Objectif: Valider le bon fonctionnement des règles de planification
+-- =========================================================================================
 
--- =========================
--- RÉINITIALISATION DES TABLES DE DONNÉES (garde les structures Sprint 3)
--- =========================
+-- =========================================================================================
+-- CRÉATION DES HÔTELS
+-- =========================================================================================
+-- IMPORTANT: Exécuter cette section UNE SEULE FOIS pour créer les hôtels
+-- Si les hôtels existent déjà, commenter cette section
 
--- Vider les réservations anciennes (garde hôtels, véhicules, lieux, distances, config)
-DELETE FROM reservation WHERE date_heure_depart >= '2026-03-04';
+-- Supprimer les anciens hôtels de test (optionnel - attention aux contraintes FK)
+-- DELETE FROM hotel WHERE nom LIKE '%Colbert%' OR nom LIKE '%Carlton%' OR nom LIKE '%Louvre%';
 
--- =========================
--- DONNÉES DE TEST SPRINT 4 - 04-03-2026
--- =========================
--- Scénario de test pour les nouvelles règles:
--- 1. Un véhicule peut avoir plusieurs clients à la fois
--- 2. Les clients avec le plus de passagers sont traités en premier
--- 3. Après assignation d'un client, on remplit les places restantes
--- 4. Les clients proches de l'aéroport ont la priorité
--- =========================
+-- Création des 10 hôtels pour les tests
+INSERT INTO hotel (nom, adresse) VALUES
+('Hotel Colbert Antananarivo', 'Rue Prince Ratsimamanga, Antananarivo'),
+('Carlton Madagascar', 'Anosy, Antananarivo'),
+('Hotel Le Louvre', 'Lalana Rainandriamampandry, Antananarivo'),
+('Palissandre Hotel', 'Ivandry, Antananarivo'),
+('Radisson Blu Waterfront', 'Rue Solombavambahoaka, Antananarivo'),
+('Hotel Sakamanga', 'Rue Andriandahifotsy, Antananarivo'),
+('Hotel Belvedere', 'Route dAnkadimbahoaka, Antananarivo'),
+('Hotel La Ribaudiere', 'Route de lUniversite, Antananarivo'),
+('Hotel Tana Plaza', 'Avenue de lIndependance, Antananarivo'),
+('Hotel Sunny', 'Rue Rainibetsimisaraka, Antananarivo');
 
--- Données pour tester le groupage de clients dans un même véhicule
--- TOUS LES CLIENTS ARRIVENT À 14:00 LE 04-03-2026
+-- Vérifier la création des hôtels
+SELECT * FROM hotel ORDER BY nom;
+
+-- =========================================================================================
+-- CRÉATION DES LIEUX (AÉROPORT + HÔTELS)
+-- =========================================================================================
+-- IMPORTANT: Exécuter cette section UNE SEULE FOIS pour créer les lieux
+-- Si les lieux existent déjà, commenter cette section
+
+-- Supprimer les anciens lieux de test (optionnel - attention aux contraintes FK)
+-- DELETE FROM lieu WHERE code IN ('IVATO', 'COLBERT', 'CARLTON', 'LOUVRE', 'PALISSANDRE', 'RADISSON', 'SAKAMANGA', 'BELVEDERE', 'RIBAUDIERE', 'TANAPLAZA', 'SUNNY');
+
+-- Création de l'aéroport
+INSERT INTO lieu (code, libelle) VALUES
+('IVATO', 'Aéroport International Ivato');
+
+-- Création des lieux correspondant aux hôtels
+INSERT INTO lieu (code, libelle) VALUES
+('COLBERT', 'Hotel Colbert Antananarivo'),
+('CARLTON', 'Carlton Madagascar'),
+('LOUVRE', 'Hotel Le Louvre'),
+('PALISSANDRE', 'Palissandre Hotel'),
+('RADISSON', 'Radisson Blu Waterfront'),
+('SAKAMANGA', 'Hotel Sakamanga'),
+('BELVEDERE', 'Hotel Belvedere'),
+('RIBAUDIERE', 'Hotel La Ribaudiere'),
+('TANAPLAZA', 'Hotel Tana Plaza'),
+('SUNNY', 'Hotel Sunny');
+
+-- Vérifier la création des lieux
+SELECT * FROM lieu ORDER BY code;
+
+-- =========================================================================================
+-- CRÉATION DES DISTANCES
+-- =========================================================================================
+-- IMPORTANT: Exécuter cette section UNE SEULE FOIS pour créer les distances
+-- Si les distances existent déjà, commenter cette section
+
+-- Supprimer les anciennes distances de test (optionnel)
+-- DELETE FROM distance WHERE from_lieu IN (SELECT id FROM lieu WHERE code IN ('IVATO', 'COLBERT', 'CARLTON', 'LOUVRE', 'PALISSANDRE', 'RADISSON', 'SAKAMANGA', 'BELVEDERE', 'RIBAUDIERE', 'TANAPLAZA', 'SUNNY'));
+
+-- Distances de l'aéroport Ivato vers tous les hôtels
+INSERT INTO distance (from_lieu, to_lieu, km) VALUES
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'COLBERT'), 15.5),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'CARLTON'), 16.2),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'LOUVRE'), 14.8),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'PALISSANDRE'), 18.3),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'RADISSON'), 16.7),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 15.1),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'BELVEDERE'), 19.2),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 17.5),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 14.3),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 13.9),
+
+-- Distances entre hôtels (matrice complète)
+-- COLBERT vers autres hôtels
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'CARLTON'), 3.5),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'LOUVRE'), 2.1),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'PALISSANDRE'), 5.8),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'RADISSON'), 4.2),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 2.8),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'BELVEDERE'), 6.3),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 4.9),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 1.7),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 2.3),
+
+-- CARLTON vers autres hôtels (sauf COLBERT déjà fait)
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'LOUVRE'), 2.9),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'PALISSANDRE'), 6.1),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'RADISSON'), 1.8),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 3.2),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'BELVEDERE'), 7.1),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 5.3),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 2.6),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 3.8),
+
+-- LOUVRE vers autres hôtels (sauf COLBERT, CARLTON déjà faits)
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'PALISSANDRE'), 4.7),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'RADISSON'), 3.1),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 1.5),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'BELVEDERE'), 5.9),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 4.2),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 1.9),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 1.2),
+
+-- PALISSANDRE vers autres hôtels (sauf précédents)
+((SELECT id FROM lieu WHERE code = 'PALISSANDRE'), (SELECT id FROM lieu WHERE code = 'RADISSON'), 4.8),
+((SELECT id FROM lieu WHERE code = 'PALISSANDRE'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 5.3),
+((SELECT id FROM lieu WHERE code = 'PALISSANDRE'), (SELECT id FROM lieu WHERE code = 'BELVEDERE'), 3.2),
+((SELECT id FROM lieu WHERE code = 'PALISSANDRE'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 2.1),
+((SELECT id FROM lieu WHERE code = 'PALISSANDRE'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 6.5),
+((SELECT id FROM lieu WHERE code = 'PALISSANDRE'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 6.9),
+
+-- RADISSON vers autres hôtels (sauf précédents)
+((SELECT id FROM lieu WHERE code = 'RADISSON'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 3.7),
+((SELECT id FROM lieu WHERE code = 'RADISSON'), (SELECT id FROM lieu WHERE code = 'BELVEDERE'), 6.4),
+((SELECT id FROM lieu WHERE code = 'RADISSON'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 4.7),
+((SELECT id FROM lieu WHERE code = 'RADISSON'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 3.1),
+((SELECT id FROM lieu WHERE code = 'RADISSON'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 4.2),
+
+-- SAKAMANGA vers autres hôtels (sauf précédents)
+((SELECT id FROM lieu WHERE code = 'SAKAMANGA'), (SELECT id FROM lieu WHERE code = 'BELVEDERE'), 5.8),
+((SELECT id FROM lieu WHERE code = 'SAKAMANGA'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 3.9),
+((SELECT id FROM lieu WHERE code = 'SAKAMANGA'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 2.2),
+((SELECT id FROM lieu WHERE code = 'SAKAMANGA'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 1.8),
+
+-- BELVEDERE vers autres hôtels (sauf précédents)
+((SELECT id FROM lieu WHERE code = 'BELVEDERE'), (SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), 2.8),
+((SELECT id FROM lieu WHERE code = 'BELVEDERE'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 7.2),
+((SELECT id FROM lieu WHERE code = 'BELVEDERE'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 7.6),
+
+-- RIBAUDIERE vers autres hôtels (sauf précédents)
+((SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), (SELECT id FROM lieu WHERE code = 'TANAPLAZA'), 5.4),
+((SELECT id FROM lieu WHERE code = 'RIBAUDIERE'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 5.9),
+
+-- TANAPLAZA vers dernier hôtel
+((SELECT id FROM lieu WHERE code = 'TANAPLAZA'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 0.9);
+
+-- Vérifier la création des distances
+SELECT 
+    ld.libelle as depart, 
+    la.libelle as arrivee, 
+    d.km as distance_km
+FROM distance d
+JOIN lieu ld ON d.from_lieu = ld.id
+JOIN lieu la ON d.to_lieu = la.id
+ORDER BY depart, arrivee;
+
+-- =========================================================================================
+-- CRÉATION DES VÉHICULES DE TEST
+-- =========================================================================================
+-- IMPORTANT: Exécuter ce script UNE SEULE FOIS pour créer les véhicules
+-- Si les véhicules existent déjà, commenter cette section
+
+-- Supprimer les anciens véhicules de test (optionnel - attention aux contraintes FK)
+-- DELETE FROM vehicule WHERE reference LIKE 'VH-%';
+
+-- Création des 7 véhicules pour les tests
+INSERT INTO vehicule (reference, place, type_carburant) VALUES
+('VH-001', 4, 'diesel'),     -- 4 places diesel
+('VH-002', 4, 'essence'),    -- 4 places essence (moins prioritaire que VH-001)
+('VH-003', 2, 'diesel'),     -- 2 places diesel
+('VH-004', 5, 'diesel'),     -- 5 places diesel
+('VH-005', 5, 'essence'),    -- 5 places essence (moins prioritaire que VH-004)
+('VH-006', 3, 'diesel'),     -- 3 places diesel
+('VH-007', 7, 'diesel');     -- 7 places diesel (pour grands groupes)
+
+-- Vérifier la création des véhicules
+SELECT * FROM vehicule WHERE reference LIKE 'VH-%' ORDER BY reference;
+
+-- =========================================================================================
+-- CONTEXTE DES TESTS
+-- =========================================================================================
+-- Véhicules disponibles (7 au total):
+--   VH-001: 4 places, diesel
+--   VH-002: 4 places, essence
+--   VH-003: 2 places, diesel
+--   VH-004: 5 places, diesel
+--   VH-005: 5 places, essence
+--   VH-006: 3 places, diesel
+--   VH-007: 7 places, diesel
+-- =========================================================================================
+
+-- Nettoyer les anciennes données de test
+DELETE FROM reservation WHERE date_heure_depart >= '2026-03-11';
+
+-- =========================================================================================
+-- TEST 1 : RÈGLE 1 - Priorité aux réservations avec le plus de passagers
+-- =========================================================================================
+-- Objectif: Vérifier que les réservations sont traitées par ordre décroissant de nb_passager
+-- Résultat attendu: 
+--   - Jean (6 passagers) traité en PREMIER -> VH-007 (7 places)
+--   - Paul (5 passagers) traité en DEUXIÈME -> VH-004 (5 places diesel) ou VH-005
+--   - Marie (4 passagers) traité en TROISIÈME -> VH-001 (4 places diesel)
+-- =========================================================================================
+
 INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUES
--- Groupe 1: Clients avec beaucoup de passagers (à assigner ensemble)
-('Rakoto Jean',1,4,'2026-03-04 14:00:00'),         -- 4 passagers -> Hotel Colbert (15.5 km)
-('Randria Marie', 10, 2,'2026-03-04 14:00:00'),      -- 2 passagers -> Hotel Sunny (13.9 km) - peut partager avec Jean (4+2=6)
+('Rakoto Jean', 1, 6, '2026-03-11 10:00:00'),      -- 6 passagers -> Priorité 1
+('Andriana Paul', 3, 5, '2026-03-11 10:00:00'),    -- 5 passagers -> Priorité 2
+('Randria Marie', 2, 4, '2026-03-11 10:00:00');    -- 4 passagers -> Priorité 3
+    
+-- VÉRIFICATION TEST 1:
+-- Lancer le planning pour la date 2026-03-11
+-- Dans l'interface: /planning/result avec datePlanning = 2026-03-11
+--
+-- RÉSULTAT ATTENDU:
+-- VH-007 (7 places): Jean (6 passagers) + 1 place libre
+-- VH-004 ou VH-005 (5 places): Paul (5 passagers) + 0 place libre
+-- VH-001 (4 places diesel): Marie (4 passagers) + 0 place libre
 
--- Groupe 2: Client moyen et clients légers
-('Andriana Paul', 3, 3, '2026-03-04 11:00:00'),       -- 3 passagers -> Hotel Le Louvre (14.8 km)
-('Raja Sophie', 10, 1, '2026-03-04 11:00:00'),        -- 1 passager -> Hotel Sunny (13.9 km) - peut partager avec Paul (3+1=4)
-('Rabe Hery', 10, 2, '2026-03-04 11:00:00'),          -- 2 passagers -> Hotel Sunny (13.9 km) - peut partager (3+1+2=6)
+-- =========================================================================================
+-- NETTOYAGE AVANT TEST 2
+-- =========================================================================================
+DELETE FROM reservation WHERE date_heure_depart >= '2026-03-11';
 
--- Groupe 3: Clients avec même hôtel (même destination)
-('Razaf Lanto', 2, 2, '2026-03-04 11:30:00'),         -- 2 passagers -> Carlton (16.2 km)
-('Andriana Nivo', 2, 1, '2026-03-04 11:30:00'),       -- 1 passager -> Carlton (16.2 km) - destination identique (2+1=3)
-('Ramanana Faly', 2, 2, '2026-03-04 11:30:00'),       -- 2 passager -> Carlton (16.2 km) - destination identique (2+1+2=5)
+-- =========================================================================================
+-- TEST 2 : RÈGLE 2a - Véhicule avec le nombre de places le plus proche
+-- =========================================================================================
+-- Objectif: Vérifier que le système choisit le véhicule avec le minimum de places suffisantes
+-- Résultat attendu: 
+--   - Sophie (2 passagers) -> VH-003 (2 places) et PAS VH-006 (3 places) ni VH-001 (4 places)
+--   - Luc (3 passagers) -> VH-006 (3 places) et PAS VH-001 (4 places)
+--   - Emma (5 passagers) -> VH-004 (5 places diesel) et PAS VH-007 (7 places)
+-- =========================================================================================
 
--- Groupe 4: Clients loin de l'aéroport
-('Rabeson Tiara', 7, 1, '2026-03-04 11:30:00'),       -- 1 passager -> Belvedere (19.2 km)
-('Rafary Jean', 7, 2, '2026-03-04 11:30:00'),         -- 2 passagers -> Belvedere (19.2 km) - même destination (1+2=3)
+INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUES
+('Raja Sophie', 10, 2, '2026-03-11 11:00:00'),     -- 2 passagers -> VH-003 (2 places exactes)
+('Rabe Luc', 5, 3, '2026-03-11 11:00:00'),         -- 3 passagers -> VH-006 (3 places exactes)
+('Razaf Emma', 4, 5, '2026-03-11 11:00:00');       -- 5 passagers -> VH-004 ou VH-005 (5 places exactes)
 
--- Groupe 5: Clients très proches de l'aéroport
-('Rasolofo Manoa', 10, 3, '2026-03-04 15:00:00'),     -- 3 passagers -> Hotel Sunny (13.9 km - le plus proche)
-('Randrianampoinimerina Fara', 9, 2, '2026-03-04 15:00:00'), -- 2 passagers -> Hotel Tana Plaza (14.3 km)
+-- VÉRIFICATION TEST 2:
+-- RÉSULTAT ATTENDU:
+-- VH-004 ou VH-005 (5 places): Emma (5 passagers)    <- Traité en PREMIER (plus de passagers)
+-- VH-006 (3 places): Luc (3 passagers)               <- Traité en DEUXIÈME
+-- VH-003 (2 places): Sophie (2 passagers)            <- Traité en DERNIER
 
--- Groupe 6: Réservation unique importante (peut remplir seule un véhicule)
-('Ravelo Stephane', 6, 6, '2026-03-04 15:10:00'),     -- 6 passagers -> Hotel Sakamanga (15.1 km)
+-- =========================================================================================
+-- NETTOYAGE AVANT TEST 3
+-- =========================================================================================
+DELETE FROM reservation WHERE date_heure_depart >= '2026-03-11';
 
--- Groupe 7: Petits clients pour remplissage
-('Ryan Justin', 5, 1, '2026-03-04 17:00:00'),         -- 1 passager -> Radisson (16.7 km)
-('Rolex Dany', 5, 1, '2026-03-04 17:00:00'),          -- 1 passager -> Radisson (16.7 km)
-('Rene Michel', 5, 1, '2026-03-04 17:00:00');
--- =========================
--- EXPLICATIONS DES DONNÉES DE TEST
--- =========================
+-- =========================================================================================
+-- TEST 3 : RÈGLE 2b - Priorité au diesel si égalité de places
+-- =========================================================================================
+-- Objectif: Vérifier que si deux véhicules ont le même nombre de places, le diesel est choisi
+-- Contexte: VH-001 (4 places diesel) vs VH-002 (4 places essence)
+--           VH-004 (5 places diesel) vs VH-005 (5 places essence)
+-- Résultat attendu: Les véhicules diesel sont choisis en priorité
+-- =========================================================================================
 
--- =========================
--- Règles à tester :
--- =========================
+INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUES
+('Client A', 1, 5, '2026-03-11 12:00:00'),         -- 5 passagers -> VH-004 (diesel) prioritaire
+('Client B', 2, 5, '2026-03-11 12:00:00'),         -- 5 passagers -> VH-005 (essence) car VH-004 pris
+('Client C', 3, 4, '2026-03-11 12:00:00'),         -- 4 passagers -> VH-001 (diesel) prioritaire
+('Client D', 4, 4, '2026-03-11 12:00:00');         -- 4 passagers -> VH-002 (essence) car VH-001 pris
 
--- 1. GROUPAGE PAR NOMBRE DE PASSAGERS
---    Ordre de traitement : 6 passagers (Ravelo) > 4 passagers (Rakoto) > 3 passagers (Andriana, Rasolofo, Rafalimanana)
---    > 2 passagers (Randria, Razaf, Rabeson, Rene...) > 1 passager (Raja, Nivo, Ramanana, Ryan...)
+-- VÉRIFICATION TEST 3:
+-- RÉSULTAT ATTENDU:
+-- VH-004 (5 places diesel): Client A (5 passagers)   <- DIESEL choisi en priorité
+-- VH-005 (5 places essence): Client B (5 passagers)  <- Essence car diesel déjà pris
+-- VH-001 (4 places diesel): Client C (4 passagers)   <- DIESEL choisi en priorité
+-- VH-002 (4 places essence): Client D (4 passagers)  <- Essence car diesel déjà pris
 
--- 2. GROUPAGE PAR PROXIMITÉ AÉROPORT
---    Après tri par passagers, les clients proches de l'aéroport sont visités en premier :
---    - Hotel Sunny (13.9 km) - le plus proche
---    - Hotel Tana Plaza (14.3 km)
---    - Hotel Le Louvre (14.8 km)
---    - Hotel Colbert (15.5 km)
---    - Hotel Sakamanga (15.1 km)
---    - Hotel Radisson (16.7 km)
---    - Hotel Carlton (16.2 km)
---    - Hotel Belvedere (19.2 km) - le plus loin
+-- =========================================================================================
+-- NETTOYAGE AVANT TEST 4
+-- =========================================================================================
+DELETE FROM reservation WHERE date_heure_depart >= '2026-03-11';
 
--- 3. ASSIGNATION DE VÉHICULES
---    Avec les 7 véhicules disponibles et 15 réservations :
---    - Ravelo (6) peut remplir VH-007 (7 places) = 1 véhicule
---    - Rakoto (4) + Randria (2) = 6 places -> VH-001 ou VH-004 (diesel prioritaire)
---    - Andriana (3) + Raja (1) + Rabe (2) = 6 passagers -> Même véhicule possible
---    - Razaf (2) + Andriana (1) + Ramanana (2) = 5 passagers -> Partage possible (VH-004 ou VH-005)
---    - Rabeson (1) + Rafary (2) = 3 passagers -> VH-006 (3 places)
---    - Rasolofo (3) + Randrianampoinimerina (2) = 5 passagers -> VH-004 ou VH-005
---    - Ryan (1) + Rolex (1) + Rene (1) = 3 passagers -> VH-006 ou autre
---    - Ramamonjisoa (4) -> VH-001, VH-002, VH-004, VH-005
---    - Rafalimanana (3) -> partage possible ou véhicule seul
+-- =========================================================================================
+-- TEST 4 : RÈGLE 3 - Maximisation du véhicule avant de passer au suivant
+-- =========================================================================================
+-- Objectif: Vérifier que le système remplit au maximum un véhicule avant d'en utiliser un autre
+-- Résultat attendu: 
+--   - VH-007 doit avoir : Rakoto (4) + Randria (2) + Raja (1) = 7 passagers (PLEIN)
+--   - Un seul véhicule utilisé au lieu de trois
+-- =========================================================================================
 
--- =========================
--- NOTES IMPORTANTES
--- =========================
+INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUES
+('Rakoto Tiavo', 1, 4, '2026-03-11 13:00:00'),     -- 4 passagers -> VH-007 commence
+('Randria Nivo', 2, 2, '2026-03-11 13:00:00'),     -- 2 passagers -> Ajouté à VH-007 (4+2=6)
+('Raja Faly', 3, 1, '2026-03-11 13:00:00');        -- 1 passager  -> Ajouté à VH-007 (6+1=7 PLEIN)
 
--- Note 1: TOUS les clients arrivent à la MÊME DATE ET MÊME HEURE (14:00 le 04-03-2026).
---         Cela teste la capacité du système à planifier plusieurs clients simultanément
---         et optimiser l'utilisation des véhicules pour un départ massif de l'aéroport.
+-- VÉRIFICATION TEST 4:
+-- RÉSULTAT ATTENDU:
+-- VH-007 (7 places): Rakoto (4) + Randria (2) + Raja (1) = 7 passagers
+-- Nombre de véhicules utilisés: 1 seul (optimisation maximale)
 
--- Note 2: Les hôtels sont choisis pour tester :
---         - Clients avec même destination (Carlton) -> trajet optimisé
---         - Clients clients avec destinations proches (Sunny, Tana Plaza)
---         - Clients loin de l'aéroport (Belvedere, Palissandre)
+-- =========================================================================================
+-- NETTOYAGE AVANT TEST 5
+-- =========================================================================================
+DELETE FROM reservation WHERE date_heure_depart >= '2026-03-11';
 
--- Note 3: Les capacités des véhicules :
---         - VH-001 (4 diesel), VH-002 (4 essence) - Priorité VH-001
---         - VH-003 (2 diesel), VH-004 (5 diesel), VH-005 (5 essence) - Priorité VH-004
---         - VH-006 (3 diesel), VH-007 (7 diesel)
+-- =========================================================================================
+-- TEST 5 : COMBINAISON DE TOUTES LES RÈGLES
+-- =========================================================================================
+-- Objectif: Tester toutes les règles ensemble dans un scénario réaliste complexe
+-- =========================================================================================
 
--- Note 4: Avec les 15 réservations et 7 véhicules, environ 7-9 réservations
---         seront assignées selon les capacités et les règles de groupage
+INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUES
+-- Groupe 1: Plus gros groupe (traité en PREMIER)
+('Alpha Group', 1, 6, '2026-03-11 14:00:00'),      -- 6 passagers -> VH-007 (7 places)
 
--- =========================
--- VÉRIFICATIONS POST-INSERTION
--- =========================
+-- Groupe 2: Groupes moyens
+('Beta Team', 2, 5, '2026-03-11 14:00:00'),        -- 5 passagers -> VH-004 (diesel prioritaire)
+('Gamma Inc', 3, 4, '2026-03-11 14:00:00'),        -- 4 passagers -> VH-001 (diesel prioritaire)
+('Delta Co', 4, 4, '2026-03-11 14:00:00'),         -- 4 passagers -> VH-002 (essence car VH-001 pris)
 
--- Vérifier le nombre de réservations pour le 04-03-2026
-SELECT COUNT(*) as 'Nombre de réservations pour 04-03-2026'
+-- Groupe 3: Petits groupes (doivent remplir VH-007)
+('Epsilon SA', 5, 3, '2026-03-11 14:00:00'),       -- 3 passagers -> Candidat pour VH-007 ou VH-006
+('Zeta Ltd', 6, 2, '2026-03-11 14:00:00'),         -- 2 passagers -> Candidat pour remplissage
+('Eta Partners', 7, 1, '2026-03-11 14:00:00');     -- 1 passager  -> Doit remplir VH-007 (6+1=7)
+    
+-- VÉRIFICATION TEST 5:
+-- RÉSULTAT ATTENDU (ordre de traitement):
+-- 1. Alpha (6) -> VH-007, puis maximisation:
+--    - Essai Eta (1) : 6+1=7 ✅ -> VH-007 PLEIN
+-- 2. Beta (5) -> VH-004 (diesel prioritaire)
+-- 3. Gamma (4) -> VH-001 (diesel prioritaire)
+-- 4. Delta (4) -> VH-002 (essence)
+-- 5. Epsilon (3) -> VH-006 (3 places exactes)
+-- 6. Zeta (2) -> VH-003 (2 places exactes)
+--
+-- VÉHICULES UTILISÉS: 6 véhicules sur 7
+-- VH-007: Alpha (6) + Eta (1) = 7 passagers (PLEIN)
+-- VH-004: Beta (5)
+-- VH-001: Gamma (4)
+-- VH-002: Delta (4)
+-- VH-006: Epsilon (3)
+-- VH-003: Zeta (2)
+
+-- =========================================================================================
+-- NETTOYAGE AVANT TEST 6
+-- =========================================================================================
+DELETE FROM reservation WHERE date_heure_depart >= '2026-03-11';
+
+-- =========================================================================================
+-- TEST 6 : SCÉNARIO DE MAXIMISATION COMPLEXE
+-- =========================================================================================
+-- Objectif: Tester la maximisation avec plusieurs candidats possibles
+-- =========================================================================================
+
+INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUES
+('Client 1', 1, 4, '2026-03-11 15:00:00'),         -- 4 passagers -> VH-007 (7 places)
+('Client 2', 2, 3, '2026-03-11 15:00:00'),         -- 3 passagers -> Peut remplir VH-007 ? NON (4+3=7) -> Priorité
+('Client 3', 3, 2, '2026-03-11 15:00:00'),         -- 2 passagers -> Alternative pour VH-007
+('Client 4', 4, 1, '2026-03-11 15:00:00');         -- 1 passager  -> Alternative pour VH-007
+
+-- VÉRIFICATION TEST 6:
+-- RÉSULTAT ATTENDU (algorithme de maximisation):
+-- 1. Client 1 (4) -> VH-007, reste 3 places
+-- 2. Maximisation recherche la PLUS GRANDE réservation qui peut entrer:
+--    - Client 2 (3) ✅ peut entrer, c'est la plus grande -> Ajouté (4+3=7 PLEIN)
+-- 3. Client 3 (2) -> Nouveau véhicule VH-003 (2 places exactes)
+-- 4. Client 4 (1) -> Peut remplir VH-003 ? NON (déjà 2+0=2 plein)
+--    -> Aucun véhicule disponible, non assigné OU nouveau véhicule
+--
+-- VH-007: Client 1 (4) + Client 2 (3) = 7 passagers (PLEIN)
+-- VH-003: Client 3 (2)
+-- VH-006 ou autre: Client 4 (1)
+
+-- =========================================================================================
+-- INSTRUCTIONS D'UTILISATION
+-- =========================================================================================
+
+-- Pour tester:
+-- 1. Exécuter un des blocs de test ci-dessus
+-- 2. Aller sur: http://localhost:8080/planning/selection-date
+-- 3. Entrer la date: 2026-03-11
+-- 4. Valider et observer les résultats
+-- 5. Vérifier que les règles sont respectées selon les "RÉSULTAT ATTENDU"
+
+-- Pour voir toutes les réservations de test:
+SELECT 
+    client, 
+    nb_passager, 
+    (SELECT nom FROM hotel h WHERE h.id = reservation.id_hotel) as hotel,
+    date_heure_depart 
 FROM reservation 
-WHERE DATE(date_heure_depart) = '2026-03-04';
+WHERE DATE(date_heure_depart) = '2026-03-11' 
+ORDER BY nb_passager DESC, date_heure_depart ASC;
 
--- Vérifier le nombre total de passagers
-SELECT SUM(nb_passager) as 'Total passagers'
+-- Pour compter le nombre total de passagers:
+SELECT 
+    COUNT(*) as nb_reservations,
+    SUM(nb_passager) as total_passagers
 FROM reservation 
-WHERE DATE(date_heure_depart) = '2026-03-04';
+WHERE DATE(date_heure_depart) = '2026-03-11';
 
---   SELECT client, nb_passager, (SELECT libelle FROM hotel h WHERE h.id = reservation.id_hotel) as hotel,date_heure_depart FROM reservation WHERE DATE(date_heure_depart) = '2026-03-04' ORDER BY nb_passager DESC, date_heure_depart ASC;
-
--- =========================
--- FIN SCRIPT SPRINT 4
--- =========================
+-- =========================================================================================
+-- FIN DU SCRIPT DE TEST
+-- =========================================================================================

@@ -7,11 +7,7 @@ import java.sql.SQLException;
 public class DatabaseConnection {
     private static final String URL = "jdbc:postgresql://localhost:5432/reservation";
     private static final String USER = "postgres";
-<<<<<<< Updated upstream
-    private static final String PASSWORD = "manoa";
-=======
     private static final String PASSWORD = "admin123";
->>>>>>> Stashed changes
     
     static {
         try {
