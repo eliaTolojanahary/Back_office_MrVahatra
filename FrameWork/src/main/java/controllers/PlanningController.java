@@ -132,6 +132,7 @@ public class PlanningController {
             List<Vehicule> vehicules = Planning.getAllVehicules(conn);
             PlanningConfig config = Planning.getActiveConfig(conn);
             List<Distance> distances = Planning.getAllDistances(conn);
+            List<ReservationEnrichi> reservationsEnrichies = new ArrayList<>();
             List<Lieu> lieux = Planning.getAllLieux(conn);
             
             // Tri des réservations par nombre de passagers décroissant (priorité)
@@ -218,6 +219,7 @@ public class PlanningController {
                 }
             }
             
+<<<<<<< Updated upstream
             // ========== RÈGLES DE GESTION - ASSIGNATION DES VÉHICULES ==========
             // RÈGLE 1 : Traiter d'abord les réservations avec le PLUS de passagers
             // RÈGLE 2 : Remplir OPTIMALEMENT chaque véhicule avant de passer au suivant
@@ -230,9 +232,23 @@ public class PlanningController {
                 // Ensuite par distance croissante (proximité de l'aéroport)
                 return Double.compare(r1.getDistanceFromAeroport(), r2.getDistanceFromAeroport());
             });
+=======
+            // // ========== RÈGLES DE GESTION - ASSIGNATION DES VÉHICULES ==========
+            // // RÈGLE 1 : Traiter d'abord les réservations avec le PLUS de passagers
+            // // RÈGLE 2 : Remplir OPTIMALEMENT chaque véhicule avant de passer au suivant
+            // // 
+            // // Tri des réservations : toujours par nb passagers décroissant puis distance croissante
+            // reservationsEnrichies.sort((r1, r2) -> {
+            //     // D'abord par nombre de passagers décroissant (priorité absolue) - RÈGLE 1
+            //     int cmpPassagers = Integer.compare(r2.reservation.getNbPassager(), r1.reservation.getNbPassager());
+            //     if (cmpPassagers != 0) return cmpPassagers;
+            //     // Ensuite par distance croissante (proximité de l'aéroport)
+            //     return Double.compare(r1.getDistanceFromAeroport(), r2.getDistanceFromAeroport());
+            // });
+>>>>>>> Stashed changes
             
             List<VehiclePlanningDTO> plannings = new ArrayList<>();
-            List<ReservationDTO> unassigned = new ArrayList<>();
+            // List<ReservationDTO> unassigned = new ArrayList<>();
             List<ReservationEnrichi> reservationsRestantes = new ArrayList<>(reservationsEnrichies);
             
             // ========== ASSIGNATION DES VÉHICULES - ALGORITHME DE REMPLISSAGE OPTIMAL ==========
@@ -284,12 +300,22 @@ public class PlanningController {
     }
     
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     /**
      * Trouve le véhicule optimal selon les règles métier :
      * 1. Places minimales mais >= nb_passagers
      * 2. Si plusieurs véhicules : priorité diesel > essence
      * 3. Si égalité totale : random
      */
+=======
+    private void ajouterClientAuVehicule(VehiclePlanningDTO planning, ReservationEnrichi r, 
+                                         PlanningConfig config, Lieu aeroport, 
+                                         List<Distance> distances, List<Lieu> lieux) {
+        try {
+            // Parse la date heure d'arrivée du client
+            java.time.LocalDateTime dateHeureArriveeClient = java.time.LocalDateTime.parse(
+                r.reservation.getDateHeureDepart().replace(" ", "T")
+>>>>>>> Stashed changes
             );
             
             java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
@@ -464,7 +490,6 @@ public class PlanningController {
     }
     
     
->>>>>>> Stashed changes
     private Vehicule trouverVehiculeOptimal(List<Vehicule> vehiculesDisponibles, int nbPassagers) {
         List<Vehicule> candidats = new ArrayList<>();
         
