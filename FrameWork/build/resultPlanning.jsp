@@ -2,6 +2,8 @@
 <%@ page import="java.util.List" %>
 <%@ page import="models.ReservationDTO" %>
 <%@ page import="models.Vehicule" %>
+<%@ page import="models.VehiclePlanningDTO" %>
+<%@ page import="models.ClientInfo" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -22,8 +24,6 @@
         .badge-assigned { background-color: #C8E6C9; color: #2E7D32; }
         .malagasy { color: #1976D2; font-size: 14px; font-style: italic; }
         .francais { color: #555; font-size: 14px; }
-<<<<<<< Updated upstream
-=======
         .client-list { list-style-type: none; padding: 0; margin: 0; }
         .client-list li { padding: 5px 0; border-bottom: 1px dotted #ccc; }
         .client-list li:last-child { border-bottom: none; }
@@ -41,7 +41,6 @@
             padding: 0; 
         }
         .vehicle-id-link:hover { color: #1976D2; }
->>>>>>> Stashed changes
     </style>
 </head>
 <body>
@@ -64,21 +63,6 @@
                     </tr>
                 </thead>
                 <tbody>
-<<<<<<< Updated upstream
-                    <% List<ReservationDTO> assigned = (List<ReservationDTO>) request.getAttribute("assigned");
-                       if (assigned != null && !assigned.isEmpty()) {
-                           for (ReservationDTO r : assigned) { %>
-                        <tr>
-                            <td><%= r.getId() %></td>
-                            <td><%= r.getClient() %></td>
-                            <td><%= r.getVehicule() %></td>
-                            <td><%= r.getHeureDepart() %></td>
-                            <td><%= r.getHeureArrivee() %></td>
-                            <td><%= r.getLieuDepart() %></td>
-                            <td><%= r.getLieuArrivee() %></td>
-                            <td><%= r.getNbPassager() %></td>
-                            <td><span class="badge badge-assigned">Assignée / <span class="malagasy">Voatokana</span></span></td>
-=======
                     <% List<VehiclePlanningDTO> plannings = (List<VehiclePlanningDTO>) request.getAttribute("plannings");
                        String datePlanning = (String) request.getAttribute("datePlanning");
                        if (plannings != null && !plannings.isEmpty()) {
@@ -109,7 +93,6 @@
                             <td><%= planning.getDateHeureDepart() %></td>
                             <td><%= planning.getDateHeureRetour() %></td>
                             <td><%= planning.getPlacesOccupees() %> / <%= planning.getPlacesTotales() %></td>
->>>>>>> Stashed changes
                         </tr>
                     <%   }
                        } else { %>

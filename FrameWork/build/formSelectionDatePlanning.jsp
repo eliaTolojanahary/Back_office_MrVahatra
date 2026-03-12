@@ -147,7 +147,7 @@
             </div>
         <% } %>
         
-        <form action="<%= request.getContextPath() %>/planning/reservations-by-date" method="POST">
+        <form action="<%= request.getContextPath() %>/planning/result" method="POST">
             <div class="form-group">
                 <label for="datePlanning"><span style="font-size:1.2em;vertical-align:middle;" class="material-icons">event</span> Sélectionnez la date de planification :</label>
                 <input type="date" 
@@ -155,20 +155,12 @@
                        name="datePlanning" 
                        required>
                 <div class="info-text">
-<<<<<<< Updated upstream
-                    Toutes les réservations pour cette date seront affichées
-=======
                     Cliquez sur "Valider" pour lancer la planification
->>>>>>> Stashed changes
                 </div>
             </div>
             
             <button type="submit" class="btn-submit">
-<<<<<<< Updated upstream
-                <span style="font-size:1.2em;vertical-align:middle;" class="material-icons">search</span> Voir les Réservations & Accéder à la Planification
-=======
                 <span style="font-size:1.2em;vertical-align:middle;" class="material-icons">search</span> Valider et Lancer la Planification
->>>>>>> Stashed changes
             </button>
         </form>
         
