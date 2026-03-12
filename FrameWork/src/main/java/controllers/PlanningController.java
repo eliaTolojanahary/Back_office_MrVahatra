@@ -218,12 +218,6 @@ public class PlanningController {
                 }
             }
             
-<<<<<<< Updated upstream
-            // Trier les assignées par heure d'arrivée croissante
-            assigned.sort((d1, d2) -> d1.getHeureArriveeParsed().compareTo(d2.getHeureArriveeParsed()));
-            
-            mv.addData("assigned", assigned);
-=======
             // ========== RÈGLES DE GESTION - ASSIGNATION DES VÉHICULES ==========
             // RÈGLE 1 : Traiter d'abord les réservations avec le PLUS de passagers
             // RÈGLE 2 : Remplir OPTIMALEMENT chaque véhicule avant de passer au suivant
@@ -278,7 +272,6 @@ public class PlanningController {
             plannings.sort((p1, p2) -> Integer.compare(p1.getIdVehicule(), p2.getIdVehicule()));
             
             mv.addData("plannings", plannings);
->>>>>>> Stashed changes
             mv.addData("unassigned", unassigned);
             mv.addData("datePlanning", datePlanning);
             mv.addData("config", config);
@@ -297,14 +290,6 @@ public class PlanningController {
      * 2. Si plusieurs véhicules : priorité diesel > essence
      * 3. Si égalité totale : random
      */
-=======
-    private void ajouterClientAuVehicule(VehiclePlanningDTO planning, ReservationEnrichi r, 
-                                         PlanningConfig config, Lieu aeroport, 
-                                         List<Distance> distances, List<Lieu> lieux) {
-        try {
-            // Parse la date heure d'arrivée du client
-            java.time.LocalDateTime dateHeureArriveeClient = java.time.LocalDateTime.parse(
-                r.reservation.getDateHeureDepart().replace(" ", "T")
             );
             
             java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
@@ -486,7 +471,6 @@ public class PlanningController {
         // Filtrer les véhicules avec assez de places
         for (Vehicule v : vehiculesDisponibles) {
             if (v.getPlace() >= nbPassagers) {
-                candidats.add(v);
             }
         }
         
@@ -561,15 +545,6 @@ public class PlanningController {
         
         return mv;
     }
-<<<<<<< Updated upstream
-
-    @MethodeAnnotation("/planning/vehicule-info")
-    @GetMapping
-    public ModelView getVehiculePlanningInfo() {
-        ModelView mv = new ModelView("/vehiculeDetails.jsp");        
-        return mv;
-    }
-=======
     
     /**
      * PAGE DÉTAILS VÉHICULE : Affiche les détails du planning d'un véhicule spécifique
@@ -835,5 +810,4 @@ public class PlanningController {
         public int getNbPassager() { return nbPassager; }
         public void setNbPassager(int nbPassager) { this.nbPassager = nbPassager; }
     }
->>>>>>> Stashed changes
 }
