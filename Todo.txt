@@ -295,3 +295,27 @@ Créer le script (actuel) pour les données de teste
 	Métier :
 	Base : distance, lieu, client, planning, reservation
 	Qui : Manoa
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Sprint 5 16/03/2026
+TL : Tolojanahary Elia Nantenanaina ETU003230
+BackOffice : Rahajarijaona Mir ETU003132
+FrontOffice : RasolofoHarilala Sandaniaina Manoa ETU003200
+
+Modifier la logique de planification pour intégrer le temps d'attente (TA):
+    Affichage : 
+        1. Ajouter l'affichage de la fenetre de regroupement basee sur le TA
+        2. Afficher l'heure de depart calculee par groupe (heure du dernier vol dans la fenetre)
+        3. Conserver les colonnes existantes de planification (vehicule, clients, heure retour)
+    Métier :
+        Classe : Planning (Controller, Service)
+        Fonction : getFormPlanningConfig()
+    Base : reservation, vehicule, parametre, client, planning
+    Description : regles de gestion :
+        1. Tout depend du temps d'attente configure (ex : TA = 30 min)
+        2. A partir du premier vol d'un groupe (ex : 8h00), traiter d'abord tous les vols arrives dans l'intervalle [8h00, 8h30]
+        3. L'heure de depart du groupe est fixee a l'heure du dernier vol de l'intervalle (ex : 8h20 si vols a 8h00, 8h13, 8h20)
+        4. Recommencer ensuite le meme traitement pour les vols suivants
+        5. Les regles de gestion precedentes restent identiques (capacite, priorites, ordre de proximite)
+    Qui : Mir
