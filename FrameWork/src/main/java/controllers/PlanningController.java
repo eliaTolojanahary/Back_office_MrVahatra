@@ -190,7 +190,7 @@ public class PlanningController {
             //           ou qu'aucune réservation restante ne peut y entrer
             // NOTE : Le temps d'attente n'est PLUS pris en compte
             // NOTE : On groupe uniquement par DATE (pas par heure)
-            
+    
             while (!reservationsRestantes.isEmpty()) {
                 // Prendre la réservation prioritaire (plus grand nombre de passagers)
                 ReservationEnrichi r = reservationsRestantes.remove(0);
@@ -212,6 +212,7 @@ public class PlanningController {
                     remplirPlacesRestantesOptimal(nouveauPlanning, reservationsRestantes, config, aeroport, distances, lieux);
                 } else {
                     unassigned.add(new ReservationDTO(r.reservation));
+
                 }
             }
             
