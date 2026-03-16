@@ -301,7 +301,6 @@ Créer le script (actuel) pour les données de teste
 Sprint 5 16/03/2026
 TL : Tolojanahary Elia Nantenanaina ETU003230
 BackOffice : Rahajarijaona Mir ETU003132
-FrontOffice : RasolofoHarilala Sandaniaina Manoa ETU003200
 
 Modifier la logique de planification pour intégrer le temps d'attente (TA):
     Affichage : 
