@@ -180,38 +180,45 @@ public class PlanningController {
             
             List<VehiclePlanningDTO> plannings = new ArrayList<>();
             List<ReservationDTO> unassigned = new ArrayList<>();
-            List<ReservationEnrichi> reservationsRestantes = new ArrayList<>(reservationsEnrichies);
+            List<List<ReservationEnrichi>> groupesReservations = grouperReservationsParFenetre(
+                reservationsEnrichies,
+                config.getTempsAttente()
+            );
             
-            // ========== ASSIGNATION DES VÉHICULES - ALGORITHME DE REMPLISSAGE OPTIMAL ==========
-            // RÈGLE 1 : Réservations triées par nb_passagers DESC (les + gros groupes en premier)
-            // RÈGLE 2 : Pour chaque réservation prioritaire, créer UN véhicule
-            // RÈGLE 3 : MAXIMISER ce véhicule en ajoutant toutes les réservations compatibles (même date)
-            // RÈGLE 4 : Ne passer au véhicule suivant QUE quand le véhicule actuel est plein
-            //           ou qu'aucune réservation restante ne peut y entrer
-            // NOTE : Le temps d'attente n'est PLUS pris en compte
-            // NOTE : On groupe uniquement par DATE (pas par heure)
-            
-            while (!reservationsRestantes.isEmpty()) {
-                // Prendre la réservation prioritaire (plus grand nombre de passagers)
-                ReservationEnrichi r = reservationsRestantes.remove(0);
-                
-                // Créer un nouveau véhicule pour cette réservation
-                Vehicule vehicule = trouverVehiculeOptimal(vehicules, plannings, r.reservation.getNbPassager());
-                
-                if (vehicule != null) {
-                    VehiclePlanningDTO nouveauPlanning = new VehiclePlanningDTO(
-                        vehicule.getId(), 
-                        vehicule.getReference(), 
-                        vehicule.getPlace()
-                    );
-                    ajouterClientAuVehicule(nouveauPlanning, r, config, aeroport, distances, lieux);
-                    plannings.add(nouveauPlanning);
-                    
-                    // MAXIMISER ce véhicule : continuer à ajouter des réservations
-                    // tant qu'il reste de la place ET qu'une réservation peut entrer
-                    remplirPlacesRestantesOptimal(nouveauPlanning, reservationsRestantes, config, aeroport, distances, lieux);
-                } else {
-                    unassigned.add(new ReservationDTO(r.reservation));
+            // ========== ASSIGNATION DES VÉHICULES PAR FENÊTRE TEMPORELLE ==========
+            // Les réservations d'une même fenêtre [t, t + temps_attente) sont traitées ensemble.
+            // Le départ d'un véhicule est ensuite recalculé à l'heure la plus tardive du groupe.
+            for (List<ReservationEnrichi> groupe : groupesReservations) {
+                // Priorité métier dans la fenêtre: nb passagers DESC puis distance ASC
+                groupe.sort((r1, r2) -> {
+                    int cmpPassagers = Integer.compare(r2.reservation.getNbPassager(), r1.reservation.getNbPassager());
+                    if (cmpPassagers != 0) return cmpPassagers;
+                    return Double.compare(r1.getDistanceFromAeroport(), r2.getDistanceFromAeroport());
+                });
+
+                List<ReservationEnrichi> reservationsRestantes = new ArrayList<>(groupe);
+
+                while (!reservationsRestantes.isEmpty()) {
+                    // Prendre la réservation prioritaire (plus grand nombre de passagers)
+                    ReservationEnrichi r = reservationsRestantes.remove(0);
+
+                    // Créer un nouveau véhicule pour cette réservation
+                    Vehicule vehicule = trouverVehiculeOptimal(vehicules, plannings, r.reservation.getNbPassager());
+
+                    if (vehicule != null) {
+                        VehiclePlanningDTO nouveauPlanning = new VehiclePlanningDTO(
+                            vehicule.getId(),
+                            vehicule.getReference(),
+                            vehicule.getPlace()
+                        );
+                        ajouterClientAuVehicule(nouveauPlanning, r, config, aeroport, distances, lieux);
+                        plannings.add(nouveauPlanning);
+
+                        // Maximiser ce véhicule uniquement avec les réservations de cette même fenêtre
+                        remplirPlacesRestantesOptimal(nouveauPlanning, reservationsRestantes, config, aeroport, distances, lieux);
+                    } else {
+                        unassigned.add(new ReservationDTO(r.reservation));
+                    }
                 }
             }
             
@@ -324,15 +331,19 @@ public class PlanningController {
         double tempsRetour = distanceRetour / config.getVitesseMoyenne();
         tempsTotal += tempsRetour;
         
-        // L'heure de départ du véhicule = heure d'arrivée du premier client à l'aéroport
-        // (stockée dans heureArriveeHotel du premier client)
+        // L'heure de départ du véhicule = heure d'arrivée la plus tardive des clients du véhicule.
+        // Cela permet de traiter en même temps les réservations d'une même fenêtre temporelle.
         try {
-            String heureDepart = clients.get(0).getHeureArriveeHotel(); // HH:mm
-            
-            // Parser l'heure et créer un LocalDateTime pour aujourd'hui
-            String[] parts = heureDepart.split(":");
-            java.time.LocalDateTime heureDepotVehicule = java.time.LocalDate.now()
-                .atTime(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
+            java.time.LocalDateTime heureDepotVehicule = clients.stream()
+                .map(ClientInfo::getHeureArriveeHotel)
+                .map(this::parseHeureHHmm)
+                .filter(h -> h != null)
+                .max(java.time.LocalDateTime::compareTo)
+                .orElse(null);
+
+            if (heureDepotVehicule == null) {
+                return;
+            }
             
             // Ajouter le temps total pour obtenir l'heure de retour
             long heures = (long) tempsTotal;
@@ -345,6 +356,72 @@ public class PlanningController {
             planning.setHeureRetourParsed(heureRetourVehicule);
         } catch (Exception e) {
             System.err.println("Erreur parsing heure de départ: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Regroupe les réservations par fenêtres temporelles successives de taille tempsAttente.
+     * Exemple avec 30 min: [08:00,08:30), [08:30,09:00), ...
+     */
+    private List<List<ReservationEnrichi>> grouperReservationsParFenetre(List<ReservationEnrichi> reservations,
+                                                                           int tempsAttenteMinutes) {
+        List<List<ReservationEnrichi>> groupes = new ArrayList<>();
+        if (reservations == null || reservations.isEmpty()) {
+            return groupes;
+        }
+
+        List<ReservationEnrichi> reservationsTriees = new ArrayList<>(reservations);
+        reservationsTriees.sort((r1, r2) -> parseDateHeureReservation(r1).compareTo(parseDateHeureReservation(r2)));
+
+        if (tempsAttenteMinutes <= 0) {
+            for (ReservationEnrichi reservation : reservationsTriees) {
+                List<ReservationEnrichi> groupe = new ArrayList<>();
+                groupe.add(reservation);
+                groupes.add(groupe);
+            }
+            return groupes;
+        }
+
+        java.time.LocalDateTime debutFenetre = parseDateHeureReservation(reservationsTriees.get(0));
+        java.time.LocalDateTime finFenetre = debutFenetre.plusMinutes(tempsAttenteMinutes);
+        List<ReservationEnrichi> groupeCourant = new ArrayList<>();
+
+        for (ReservationEnrichi reservation : reservationsTriees) {
+            java.time.LocalDateTime dateHeureReservation = parseDateHeureReservation(reservation);
+
+            while (!dateHeureReservation.isBefore(finFenetre)) {
+                if (!groupeCourant.isEmpty()) {
+                    groupes.add(groupeCourant);
+                }
+                groupeCourant = new ArrayList<>();
+                debutFenetre = finFenetre;
+                finFenetre = debutFenetre.plusMinutes(tempsAttenteMinutes);
+            }
+
+            groupeCourant.add(reservation);
+        }
+
+        if (!groupeCourant.isEmpty()) {
+            groupes.add(groupeCourant);
+        }
+
+        return groupes;
+    }
+
+    private java.time.LocalDateTime parseDateHeureReservation(ReservationEnrichi reservation) {
+        try {
+            return java.time.LocalDateTime.parse(reservation.reservation.getDateHeureDepart().replace(" ", "T"));
+        } catch (Exception e) {
+            return java.time.LocalDateTime.MIN;
+        }
+    }
+
+    private java.time.LocalDateTime parseHeureHHmm(String heure) {
+        try {
+            String[] parts = heure.split(":");
+            return java.time.LocalDate.now().atTime(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
+        } catch (Exception e) {
+            return null;
         }
     }
     
@@ -566,22 +643,34 @@ public class PlanningController {
             
             // Recréer le planning pour retrouver les clients assignés à ce véhicule
             List<VehiclePlanningDTO> plannings = new ArrayList<>();
-            List<ReservationEnrichi> reservationsRestantes = new ArrayList<>(reservationsEnrichies);
+            List<List<ReservationEnrichi>> groupesReservations = grouperReservationsParFenetre(
+                reservationsEnrichies,
+                config.getTempsAttente()
+            );
             
-            // Assignation des réservations (même logique que getPlanningResult)
-            // NOTE : Même logique simplifiée - pas de distinction par temps_attente
-            while (!reservationsRestantes.isEmpty()) {
-                ReservationEnrichi r = reservationsRestantes.remove(0);
-                
-                Vehicule v = trouverVehiculeOptimal(vehicules, plannings, r.reservation.getNbPassager());
-                
-                if (v != null) {
-                    VehiclePlanningDTO nouveauPlanning = new VehiclePlanningDTO(v.getId(), v.getReference(), v.getPlace());
-                    ajouterClientAuVehicule(nouveauPlanning, r, config, aeroport, distances, lieux);
-                    plannings.add(nouveauPlanning);
-                    
-                    // MAXIMISER ce véhicule avec les réservations restantes
-                    remplirPlacesRestantesOptimal(nouveauPlanning, reservationsRestantes, config, aeroport, distances, lieux);
+            // Rejouer la même logique d'assignation par fenêtres temporelles
+            for (List<ReservationEnrichi> groupe : groupesReservations) {
+                groupe.sort((r1, r2) -> {
+                    int cmpPassagers = Integer.compare(r2.reservation.getNbPassager(), r1.reservation.getNbPassager());
+                    if (cmpPassagers != 0) return cmpPassagers;
+                    return Double.compare(r1.getDistanceFromAeroport(), r2.getDistanceFromAeroport());
+                });
+
+                List<ReservationEnrichi> reservationsRestantes = new ArrayList<>(groupe);
+
+                while (!reservationsRestantes.isEmpty()) {
+                    ReservationEnrichi r = reservationsRestantes.remove(0);
+
+                    Vehicule v = trouverVehiculeOptimal(vehicules, plannings, r.reservation.getNbPassager());
+
+                    if (v != null) {
+                        VehiclePlanningDTO nouveauPlanning = new VehiclePlanningDTO(v.getId(), v.getReference(), v.getPlace());
+                        ajouterClientAuVehicule(nouveauPlanning, r, config, aeroport, distances, lieux);
+                        plannings.add(nouveauPlanning);
+
+                        // Maximiser ce véhicule avec les réservations de la même fenêtre
+                        remplirPlacesRestantesOptimal(nouveauPlanning, reservationsRestantes, config, aeroport, distances, lieux);
+                    }
                 }
             }
             
