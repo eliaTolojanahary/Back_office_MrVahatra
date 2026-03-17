@@ -46,20 +46,25 @@
 <body>
     <div class="container">
         <h1>Résultat de la Planification / <span class="malagasy">Vokatra Planification</span></h1>
+        
+        <% String error = (String) request.getAttribute("error");
+           if (error != null && !error.isEmpty()) { %>
+            <div style="background-color: #f8d7da; color: #721c24; padding: 15px; margin-bottom: 20px; border: 1px solid #f5c6cb; border-radius: 4px;">
+                <strong>Erreur : </strong> <%= error %>
+            </div>
+        <% } %>
+
         <div class="table-section">
             <h2>Réservations assignées / <span class="malagasy">Fandaminana amin'ny fiara</span></h2>
             <table>
                 <thead>
                     <tr>
                         <th>ID</th>
-                        <th>Client / <span class="malagasy">Mpandeha</span></th>
                         <th>Véhicule / <span class="malagasy">Fiara</span></th>
+                        <th>Clients / <span class="malagasy">Mpandeha</span></th>
                         <th>Heure départ / <span class="malagasy">Ora fiaingana</span></th>
-                        <th>Heure arrivée / <span class="malagasy">Ora fahatongavana</span></th>
-                        <th>Lieu départ / <span class="malagasy">Toerana fiaingana</span></th>
-                        <th>Lieu arrivée / <span class="malagasy">Toerana fahatongavana</span></th>
-                        <th>Nb passagers / <span class="malagasy">Isan'ny mpandeha</span></th>
-                        <th>Status</th>
+                        <th>Heure retour / <span class="malagasy">Ora fiverenana</span></th>
+                        <th>Places occupées / <span class="malagasy">Toerana feno</span></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -96,7 +101,7 @@
                         </tr>
                     <%   }
                        } else { %>
-                        <tr><td colspan="9" style="text-align:center;">Aucune réservation assignée / <span class="malagasy">Tsy misy voatokana</span></td></tr>
+                        <tr><td colspan="6" style="text-align:center;">Aucune réservation assignée / <span class="malagasy">Tsy misy voatokana</span></td></tr>
                     <% } %>
                 </tbody>
             </table>
