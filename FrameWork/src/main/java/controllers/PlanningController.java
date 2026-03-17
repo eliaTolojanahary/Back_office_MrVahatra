@@ -556,6 +556,35 @@ public class PlanningController {
     }
     
     /**
+     * Trouve le véhicule optimal pour une réservation.
+     *
+     * Un véhicule est éligible s'il:
+     * - a assez de places pour la réservation courante
+     * - est non utilisé, ou déjà de retour à l'aéroport avant l'heure de la réservation
+     */
+    private Vehicule trouverVehiculeOptimal(List<Vehicule> tousVehicules,
+                                            List<VehiclePlanningDTO> planningsExistants,
+                                            Reservation reservationCandidate,
+                                            java.time.LocalDateTime heureDepartPrevue) {
+        int nbPassagers = reservationCandidate != null ? reservationCandidate.getNbPassager() : 0;
+
+    private int extraireDebutCreneauMinutes(String creneau) {
+        if (creneau == null || !creneau.contains("-")) {
+            return Integer.MAX_VALUE;
+        }
+
+        try {
+            String debut = creneau.split("-")[0].trim();
+            String[] hm = debut.split(":");
+            int h = Integer.parseInt(hm[0].trim());
+            int m = Integer.parseInt(hm[1].trim());
+            return (h * 60) + m;
+        } catch (Exception e) {
+            return Integer.MAX_VALUE;
+        }
+    }
+    
+    /**
      * Trouve le véhicule optimal parmi les véhicules disponibles (non encore utilisés)
      */
     private Vehicule trouverVehiculeOptimal(List<Vehicule> tousVehicules, 
