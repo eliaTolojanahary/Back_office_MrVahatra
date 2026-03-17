@@ -56,6 +56,19 @@ SELECT * FROM vehicule WHERE reference LIKE 'S6-VH-%' ORDER BY reference;
 -- Utiliser les sous-requêtes ci-dessous évite les erreurs d'ID en dur.
 
 -- Exemples utiles:
+
+INSERT INTO lieu (code, libelle) VALUES 
+('IVATO', 'Aéroport International Ivato'),
+('COLBERT', 'Hotel Colbert Antananarivo'),
+('CARLTON', 'Carlton Madagascar'),
+('LOUVRE', 'Hotel Le Louvre'),
+('PALISSANDRE', 'Palissandre Hotel'),
+('RADISSON', 'Radisson Blu Waterfront'),
+('SAKAMANGA', 'Hotel Sakamanga'),
+('BELVEDERE', 'Hotel Belvedere'),
+('RIBAUDIERE', 'Hotel La Ribaudiere'),
+('TANAPLAZA', 'Hotel Tana Plaza'),
+('SUNNY', 'Hotel Sunny');
 -- (SELECT id FROM lieu WHERE code = 'COLBERT')
 -- (SELECT id FROM lieu WHERE code = 'CARLTON')
 -- (SELECT id FROM lieu WHERE code = 'LOUVRE')
