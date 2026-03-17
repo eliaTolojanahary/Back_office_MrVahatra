@@ -1,5 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.List" %>
+<%@ page import="java.util.Map" %>
 <%@ page import="models.ReservationDTO" %>
 <%@ page import="models.Vehicule" %>
 <%@ page import="models.VehiclePlanningDTO" %>
@@ -41,7 +42,29 @@
             padding: 0; 
         }
         .vehicle-id-link:hover { color: #1976D2; }
+        .pagination { display: flex; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+        .page-btn { background-color: #f1f1f1; border: 1px solid #ccc; padding: 8px 16px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .page-btn.active { background-color: #2196F3; color: white; border-color: #2196F3; }
+        .page-btn:hover:not(.active) { background-color: #ddd; }
+        .creneau-section { display: none; }
+        .creneau-section.active { display: block; }
     </style>
+    <script>
+        function showCreneau(creneauId) {
+            // Hide all sections
+            document.querySelectorAll('.creneau-section').forEach(function(el) {
+                el.classList.remove('active');
+            });
+            // Remove active class from buttons
+            document.querySelectorAll('.page-btn').forEach(function(el) {
+                el.classList.remove('active');
+            });
+            // Show the selected section
+            document.getElementById('section-' + creneauId).classList.add('active');
+            // Add active class to clicked button
+            document.getElementById('btn-' + creneauId).classList.add('active');
+        }
+    </script>
 </head>
 <body>
     <div class="container">
@@ -54,90 +77,130 @@
             </div>
         <% } %>
 
-        <div class="table-section">
-            <h2>Réservations assignées / <span class="malagasy">Fandaminana amin'ny fiara</span></h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Véhicule / <span class="malagasy">Fiara</span></th>
-                        <th>Clients / <span class="malagasy">Mpandeha</span></th>
-                        <th>Heure départ / <span class="malagasy">Ora fiaingana</span></th>
-                        <th>Heure retour / <span class="malagasy">Ora fiverenana</span></th>
-                        <th>Places occupées / <span class="malagasy">Toerana feno</span></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% List<VehiclePlanningDTO> plannings = (List<VehiclePlanningDTO>) request.getAttribute("plannings");
-                       String datePlanning = (String) request.getAttribute("datePlanning");
-                       if (plannings != null && !plannings.isEmpty()) {
-                           for (VehiclePlanningDTO planning : plannings) { %>
-                        <tr>
-                            <td class="vehicle-id">
-                                <form action="<%= request.getContextPath() %>/planning/vehicule-detail" method="post" style="display: inline; margin: 0;">
-                                    <input type="hidden" name="idVehicule" value="<%= planning.getIdVehicule() %>">
-                                    <input type="hidden" name="datePlanning" value="<%= datePlanning != null ? datePlanning : "" %>">
-                                    <button type="submit" class="vehicle-id-link" title="Voir les détails du véhicule"><%= planning.getIdVehicule() %></button>
-                                </form>
-                            </td>
-                            <td><%= planning.getReferenceVehicule() %></td>
-                            <td>
-                                <ul class="client-list">
-                                    <% for (models.ClientInfo client : planning.getClients()) { %>
-                                        <li>
-                                            <span class="client-name"><%= client.getNomClient() %></span><br/>
-                                            <span class="client-details">
-                                                <%= client.getNbPassager() %> passager(s) - 
-                                                <%= client.getHotel() %><br/>
-                                                Arrivée: <%= client.getHeureArriveeHotel() %>
-                                            </span>
-                                        </li>
-                                    <% } %>
-                                </ul>
-                            </td>
-                            <td><%= planning.getDateHeureDepart() %></td>
-                            <td><%= planning.getDateHeureRetour() %></td>
-                            <td><%= planning.getPlacesOccupees() %> / <%= planning.getPlacesTotales() %></td>
-                        </tr>
-                    <%   }
-                       } else { %>
-                        <tr><td colspan="6" style="text-align:center;">Aucune réservation assignée / <span class="malagasy">Tsy misy voatokana</span></td></tr>
-                    <% } %>
-                </tbody>
-            </table>
+        <% 
+           Map<String, List<VehiclePlanningDTO>> planningsParCreneauMap = (Map<String, List<VehiclePlanningDTO>>) request.getAttribute("planningsParCreneauMap");
+           Map<String, List<ReservationDTO>> unassignedParCreneauMap = (Map<String, List<ReservationDTO>>) request.getAttribute("unassignedParCreneauMap");
+           String datePlanning = (String) request.getAttribute("datePlanning");
+
+           if (planningsParCreneauMap != null && !planningsParCreneauMap.isEmpty()) { 
+               int index = 0;
+        %>
+        
+        <div class="pagination">
+            <% for (String creneau : planningsParCreneauMap.keySet()) { 
+                  String safeId = creneau.replace(":", "").replace(" ", "").replace("-", "_");
+            %>
+                <button id="btn-<%= safeId %>" class="page-btn <%= index == 0 ? "active" : "" %>" onclick="showCreneau('<%= safeId %>')">
+                    <%= creneau %>
+                </button>
+            <%    index++;
+               } 
+            %>
         </div>
-        <div class="table-section">
-            <h2>Réservations non assignées / <span class="malagasy">Tsy voatokana</span></h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Client / <span class="malagasy">Mpandeha</span></th>
-                        <th>Nb passagers / <span class="malagasy">Isan'ny mpandeha</span></th>
-                        <th>Date arrivée / <span class="malagasy">Daty fahatongavana</span></th>
-                        <th>Hôtel / <span class="malagasy">Hotel</span></th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% List<ReservationDTO> unassigned = (List<ReservationDTO>) request.getAttribute("unassigned");
-                       if (unassigned != null && !unassigned.isEmpty()) {
-                           for (ReservationDTO r : unassigned) { %>
+
+        <% 
+               index = 0;
+               for (Map.Entry<String, List<VehiclePlanningDTO>> entry : planningsParCreneauMap.entrySet()) {
+                   String creneau = entry.getKey();
+                   String safeId = creneau.replace(":", "").replace(" ", "").replace("-", "_");
+                   List<VehiclePlanningDTO> plannings = entry.getValue();
+                   List<ReservationDTO> unassigned = unassignedParCreneauMap.get(creneau);
+        %>
+        <div id="section-<%= safeId %>" class="creneau-section <%= index == 0 ? "active" : "" %>">
+            <h2 style="color: #2196F3;">Tranche horaire / <span class="malagasy">Fotoana</span> : <%= creneau %></h2>
+            <div class="table-section">
+                <h2>Réservations assignées / <span class="malagasy">Fandaminana amin'ny fiara</span></h2>
+                <table>
+                    <thead>
                         <tr>
-                            <td><%= r.getId() %></td>
-                            <td><%= r.getClient() %></td>
-                            <td><%= r.getNbPassager() %></td>
-                            <td><%= r.getDateHeureArrivee() %></td>
-                            <td><%= r.getHotel() %></td>
-                            <td><span class="badge badge-unassigned">Non assignée / <span class="malagasy">Tsy voatokana</span></span></td>
+                            <th>ID</th>
+                            <th>Véhicule / <span class="malagasy">Fiara</span></th>
+                            <th>Clients / <span class="malagasy">Mpandeha</span></th>
+                            <th>Heure départ / <span class="malagasy">Ora fiaingana</span></th>
+                            <th>Heure retour / <span class="malagasy">Ora fiverenana</span></th>
+                            <th>Places occupées / <span class="malagasy">Toerana feno</span></th>
                         </tr>
-                    <%   }
-                       } else { %>
-                        <tr><td colspan="6" style="text-align:center;">Aucune réservation non assignée / <span class="malagasy">Tsy misy tsy voatokana</span></td></tr>
-                    <% } %>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        <% if (plannings != null && !plannings.isEmpty()) {
+                               for (VehiclePlanningDTO planning : plannings) { %>
+                            <tr>
+                                <td class="vehicle-id">
+                                    <form action="<%= request.getContextPath() %>/planning/vehicule-detail" method="post" style="display: inline; margin: 0;">
+                                        <input type="hidden" name="idVehicule" value="<%= planning.getIdVehicule() %>">
+                                        <input type="hidden" name="datePlanning" value="<%= datePlanning != null ? datePlanning : "" %>">
+                                        <button type="submit" class="vehicle-id-link" title="Voir les détails du véhicule"><%= planning.getIdVehicule() %></button>
+                                    </form>
+                                </td>
+                                <td><%= planning.getReferenceVehicule() %></td>
+                                <td>
+                                    <ul class="client-list">
+                                        <% for (models.ClientInfo client : planning.getClients()) { %>
+                                            <li>
+                                                <span class="client-name"><%= client.getNomClient() %></span><br/>
+                                                <span class="client-details">
+                                                    <%= client.getNbPassager() %> passager(s) - 
+                                                    <%= client.getHotel() %><br/>
+                                                    Arrivée: <%= client.getHeureArriveeHotel() %>
+                                                </span>
+                                            </li>
+                                        <% } %>
+                                    </ul>
+                                </td>
+                                <td><%= planning.getDateHeureDepart() %></td>
+                                <td><%= planning.getDateHeureRetour() %></td>
+                                <td><%= planning.getPlacesOccupees() %> / <%= planning.getPlacesTotales() %></td>
+                            </tr>
+                        <%   }
+                           } else { %>
+                            <tr><td colspan="6" style="text-align:center;">Aucune réservation assignée dans ce créneau / <span class="malagasy">Tsy misy voatokana</span></td></tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="table-section">
+                <h2>Réservations non assignées / <span class="malagasy">Tsy voatokana</span></h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Client / <span class="malagasy">Mpandeha</span></th>
+                            <th>Nb passagers / <span class="malagasy">Isan'ny mpandeha</span></th>
+                            <th>Date arrivée / <span class="malagasy">Daty fahatongavana</span></th>
+                            <th>Hôtel / <span class="malagasy">Hotel</span></th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (unassigned != null && !unassigned.isEmpty()) {
+                               for (ReservationDTO r : unassigned) { %>
+                            <tr>
+                                <td><%= r.getId() %></td>
+                                <td><%= r.getClient() %></td>
+                                <td><%= r.getNbPassager() %></td>
+                                <td><%= r.getDateHeureArrivee() %></td>
+                                <td><%= r.getHotel() %></td>
+                                <td><span class="badge badge-unassigned">Non assignée / <span class="malagasy">Tsy voatokana</span></span></td>
+                            </tr>
+                        <%   }
+                           } else { %>
+                            <tr><td colspan="6" style="text-align:center;">Aucune réservation non assignée dans ce créneau / <span class="malagasy">Tsy misy tsy voatokana</span></td></tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
         </div>
+        <% 
+                   index++;
+               } 
+           } else { 
+        %>
+            <div class="table-section">
+                <p style="text-align:center;">Aucun résultat de planification disponible. / <span class="malagasy">Tsy misy vokatra fandaminana azo ampiasaina.</span></p>
+            </div>
+        <% } %>
+
         <div style="margin-top:30px;">
             <div class="francais">
                 <strong>Règles de gestion :</strong><br>
