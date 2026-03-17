@@ -6,7 +6,9 @@ import annotation.MethodeAnnotation;
 import annotation.PostMapping;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import models.*;
 import modelview.ModelView;
 import util.DatabaseConnection;
@@ -101,13 +103,26 @@ public class PlanningController {
     @PostMapping
     public ModelView getReservationsByDate(String datePlanning) {
         ModelView mv = new ModelView("/listReservationsByDate.jsp");
+        String datePlanningNormalisee = normaliserDatePlanning(datePlanning);
+
+        if (datePlanningNormalisee == null) {
+            mv.addData("error", "Date invalide. Utiliser le format yyyy-MM-dd ou dd/MM/yyyy.");
+            mv.addData("reservations", new ArrayList<Reservation>());
+            mv.addData("count", 0);
+            return mv;
+        }
         
         try (Connection conn = DatabaseConnection.getConnection()) {
-            List<Reservation> reservations = Planning.getReservationsByDate(conn, datePlanning);
+            List<Reservation> reservations = Planning.getReservationsByDate(conn, datePlanningNormalisee);
             PlanningConfig config = Planning.getActiveConfig(conn);
+            Map<String, List<Reservation>> reservationsParCreneau = grouperReservationsParCreneau(
+                reservations,
+                config != null ? config.getTempsAttente() : 0
+            );
             
             mv.addData("reservations", reservations);
-            mv.addData("datePlanning", datePlanning);
+            mv.addData("reservationsParCreneau", reservationsParCreneau);
+            mv.addData("datePlanning", datePlanningNormalisee);
             mv.addData("config", config);
             mv.addData("count", reservations.size());
         } catch (SQLException e) {
@@ -124,12 +139,28 @@ public class PlanningController {
     @MethodeAnnotation("/planning/result")
     @PostMapping
     public ModelView getPlanningResult(String datePlanning) {
+        System.out.println("=== DEBUT getPlanningResult ===");
+        System.out.println("Date saisie: " + datePlanning);
         ModelView mv = new ModelView("/resultPlanning.jsp");
+        String datePlanningNormalisee = normaliserDatePlanning(datePlanning);
+        System.out.println("Date normalisee (pour SQL): " + datePlanningNormalisee);
+
+        if (datePlanningNormalisee == null) {
+            System.out.println("ERREUR: Date invalide");
+            mv.addData("error", "Date invalide. Utiliser le format yyyy-MM-dd ou dd/MM/yyyy.");
+            return mv;
+        }
         
         try (Connection conn = DatabaseConnection.getConnection()) {
             // Récupération des données de base
-            List<Reservation> reservations = Planning.getReservationsByDate(conn, datePlanning);
+            List<Reservation> reservations = Planning.getReservationsByDate(conn, datePlanningNormalisee);
+            System.out.println("Nombre de réservations trouvées pour cette date : " + reservations.size());
+            for (Reservation r : reservations) {
+                System.out.println(" -> Reservation ID=" + r.getId() + ", Client=" + r.getClient() + ", Passagers=" + r.getNbPassager() + ", Hotel=" + r.getHotel() + ", Heure=" + r.getDateHeureDepart());
+            }
+            
             List<Vehicule> vehicules = Planning.getAllVehicules(conn);
+            System.out.println("Nombre total de véhicules : " + vehicules.size());
             PlanningConfig config = Planning.getActiveConfig(conn);
             List<Distance> distances = Planning.getAllDistances(conn);
             List<ReservationEnrichi> reservationsEnrichies = new ArrayList<>();
@@ -148,20 +179,11 @@ public class PlanningController {
             
             // Enrichir les réservations avec les informations de distance
             for (Reservation r : reservations) {
-                // Trouver le lieu de l'hôtel
-                Lieu lieuHotel = lieux.stream()
-                    .filter(l -> l.getLibelle().toLowerCase().contains(r.getHotel().toLowerCase()) 
-                              || r.getHotel().toLowerCase().contains(l.getLibelle().toLowerCase()))
-                    .findFirst()
-                    .orElse(null);
-                
+                Lieu lieuHotel = trouverLieuPourReservation(r, lieux);
                 if (lieuHotel != null) {
-                    // Récupérer la distance aéroport -> hôtel
                     double distanceKm = Distance.getDistanceBetween(aeroport.getId(), lieuHotel.getId(), distances);
-                    
-                    if (distanceKm > 0) {
-                        reservationsEnrichies.add(new ReservationEnrichi(r, lieuHotel, distanceKm));
-                    }
+                    // On garde la réservation même si la distance n'est pas encore définie en base.
+                    reservationsEnrichies.add(new ReservationEnrichi(r, lieuHotel, Math.max(0.0, distanceKm)));
                 }
             }
             
@@ -178,49 +200,82 @@ public class PlanningController {
                 return Double.compare(r1.getDistanceFromAeroport(), r2.getDistanceFromAeroport());
             });
             
-            List<VehiclePlanningDTO> plannings = new ArrayList<>();
-            List<ReservationDTO> unassigned = new ArrayList<>();
-            List<ReservationEnrichi> reservationsRestantes = new ArrayList<>(reservationsEnrichies);
+            Map<String, List<VehiclePlanningDTO>> planningsParCreneauMap = new LinkedHashMap<>();
+            Map<String, List<ReservationDTO>> unassignedParCreneauMap = new LinkedHashMap<>();
             
-            // ========== ASSIGNATION DES VÉHICULES - ALGORITHME DE REMPLISSAGE OPTIMAL ==========
-            // RÈGLE 1 : Réservations triées par nb_passagers DESC (les + gros groupes en premier)
-            // RÈGLE 2 : Pour chaque réservation prioritaire, créer UN véhicule
-            // RÈGLE 3 : MAXIMISER ce véhicule en ajoutant les réservations compatibles
-            //           avec la fenêtre horaire [heure_reference, heure_reference + temps_attente]
-            // RÈGLE 4 : Ne passer au véhicule suivant QUE quand le véhicule actuel est plein
-            //           ou qu'aucune réservation restante ne peut y entrer
-            // NOTE : Le temps d'attente est utilisé comme fenêtre de regroupement horaire
-    
-            while (!reservationsRestantes.isEmpty()) {
-                // Prendre la réservation prioritaire (plus grand nombre de passagers)
-                ReservationEnrichi r = reservationsRestantes.remove(0);
-                
-                // Créer un nouveau véhicule pour cette réservation
-                Vehicule vehicule = trouverVehiculeOptimal(vehicules, plannings, r.reservation.getNbPassager());
-                
-                if (vehicule != null) {
-                    VehiclePlanningDTO nouveauPlanning = new VehiclePlanningDTO(
-                        vehicule.getId(), 
-                        vehicule.getReference(), 
-                        vehicule.getPlace()
-                    );
-                    ajouterClientAuVehicule(nouveauPlanning, r, config, aeroport, distances, lieux);
-                    plannings.add(nouveauPlanning);
-                    
-                    // MAXIMISER ce véhicule : continuer à ajouter des réservations
-                    // tant qu'il reste de la place ET qu'une réservation peut entrer
-                    remplirPlacesRestantesOptimal(nouveauPlanning, reservationsRestantes, config, aeroport, distances, lieux, r);
-                } else {
-                    unassigned.add(new ReservationDTO(r.reservation));
+            // ========== RÈGLES DE GESTION - ASSIGNATION PAR CRÉNEAU (NOUVEAU) ==========
+            // 1. Grouper les réservations par intervalle (ex: 08:00 - 08:30)
+            // 2. L'heure de départ de TOUS les véhicules dans ce créneau sera l'heure MAX des réservations du créneau
+            
+            int pasMinutes = config != null && config.getTempsAttente() > 0 ? config.getTempsAttente() : 30;
+            Map<String, List<ReservationEnrichi>> reservationsParCreneau = new LinkedHashMap<>();
+            List<VehiclePlanningDTO> planningsTousLesCreneaux = new ArrayList<>(); // Pour vérifier la disponibilité globale et le nb de courses
+            
+            for (ReservationEnrichi r : reservationsEnrichies) {
+                java.time.LocalDateTime dateHeure = parserDateHeureReservation(r.reservation.getDateHeureDepart());
+                String cleCreneau = "Inconnu";
+                if (dateHeure != null) {
+                    int totalMinutes = dateHeure.getHour() * 60 + dateHeure.getMinute();
+                    int debutCreneauMinutes = (totalMinutes / pasMinutes) * pasMinutes;
+                    int finCreneauMinutes = debutCreneauMinutes + pasMinutes;
+                    cleCreneau = formaterCreneau(debutCreneauMinutes, finCreneauMinutes);
                 }
+                reservationsParCreneau.computeIfAbsent(cleCreneau, k -> new ArrayList<>()).add(r);
             }
             
-            // Trier les plannings par ID véhicule croissant
-            plannings.sort((p1, p2) -> Integer.compare(p1.getIdVehicule(), p2.getIdVehicule()));
+            // Pour chaque créneau
+            for (Map.Entry<String, List<ReservationEnrichi>> entry : reservationsParCreneau.entrySet()) {
+                String creneau = entry.getKey();
+                List<ReservationEnrichi> resDansCreneau = entry.getValue();
+                
+                List<VehiclePlanningDTO> planningsCurrentCreneau = new ArrayList<>();
+                List<ReservationDTO> unassignedCurrentCreneau = new ArrayList<>();
+                
+                // 1) Calculer l'heure de départ commune (heure max du créneau)
+                java.time.LocalDateTime heureMaxCreneau = null;
+                for(ReservationEnrichi r : resDansCreneau) {
+                    java.time.LocalDateTime dh = parserDateHeureReservation(r.reservation.getDateHeureDepart());
+                    if (dh != null && (heureMaxCreneau == null || dh.isAfter(heureMaxCreneau))) {
+                        heureMaxCreneau = dh;
+                    }
+                }
+                
+                // On peut trier à nouveau pour être sûr (même si déjà trié)
+                resDansCreneau.sort((r1, r2) -> {
+                    int cmpPassagers = Integer.compare(r2.reservation.getNbPassager(), r1.reservation.getNbPassager());
+                    if (cmpPassagers != 0) return cmpPassagers;
+                    return Double.compare(r1.getDistanceFromAeroport(), r2.getDistanceFromAeroport());
+                });
+
+                while (!resDansCreneau.isEmpty()) {
+                    ReservationEnrichi r = resDansCreneau.remove(0);
+                    Vehicule vehicule = trouverVehiculeOptimal(vehicules, planningsTousLesCreneaux, r.reservation, heureMaxCreneau);
+                    
+                    if (vehicule != null) {
+                        VehiclePlanningDTO nouveauPlanning = new VehiclePlanningDTO(
+                            vehicule.getId(), 
+                            vehicule.getReference(), 
+                            vehicule.getPlace()
+                        );
+                        ajouterClientAuVehicule(nouveauPlanning, r, config, aeroport, distances, lieux, heureMaxCreneau);
+                        planningsCurrentCreneau.add(nouveauPlanning);
+                        planningsTousLesCreneaux.add(nouveauPlanning);
+                        
+                        remplirPlacesRestantesOptimal(nouveauPlanning, resDansCreneau, config, aeroport, distances, lieux, r, heureMaxCreneau);
+                    } else {
+                        unassignedCurrentCreneau.add(new ReservationDTO(r.reservation));
+                    }
+                }
+                
+                // Trier les plannings du créneau par ID véhicule croissant
+                planningsCurrentCreneau.sort((p1, p2) -> Integer.compare(p1.getIdVehicule(), p2.getIdVehicule()));
+                planningsParCreneauMap.put(creneau, planningsCurrentCreneau);
+                unassignedParCreneauMap.put(creneau, unassignedCurrentCreneau);
+            }
             
-            mv.addData("plannings", plannings);
-            mv.addData("unassigned", unassigned);
-            mv.addData("datePlanning", datePlanning);
+            mv.addData("planningsParCreneauMap", planningsParCreneauMap);
+            mv.addData("unassignedParCreneauMap", unassignedParCreneauMap);
+            mv.addData("datePlanning", datePlanningNormalisee);
             mv.addData("config", config);
         } catch (Exception e) {
             e.printStackTrace();
@@ -229,13 +284,39 @@ public class PlanningController {
         
         return mv;
     }
+
+    private String normaliserDatePlanning(String datePlanning) {
+        if (datePlanning == null) {
+            return null;
+        }
+
+        String valeur = datePlanning.trim();
+        if (valeur.isEmpty()) {
+            return null;
+        }
+
+        try {
+            java.time.LocalDate d = java.time.LocalDate.parse(valeur);
+            return d.toString();
+        } catch (Exception ignored) {
+        }
+
+        try {
+            java.time.format.DateTimeFormatter f = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            java.time.LocalDate d = java.time.LocalDate.parse(valeur, f);
+            return d.toString();
+        } catch (Exception ignored) {
+        }
+
+        return null;
+    }
     
     /**
      * Ajoute un client (réservation) à un véhicule
      */
     private void ajouterClientAuVehicule(VehiclePlanningDTO planning, ReservationEnrichi r, 
                                          PlanningConfig config, Lieu aeroport, 
-                                         List<Distance> distances, List<Lieu> lieux) {
+                                         List<Distance> distances, List<Lieu> lieux, java.time.LocalDateTime heureDepartForcee) {
         try {
             // Parse la date heure d'arrivée du client
             java.time.LocalDateTime dateHeureArriveeClient = java.time.LocalDateTime.parse(
@@ -254,8 +335,8 @@ public class PlanningController {
                 r.reservation.getId()
             );
             
-            // Recalculer les horaires du véhicule en fonction de tous les clients
-            recalculerHorairesVehicule(planning, config, aeroport, distances, lieux);
+            // Recalculer les horaires du véhicule en fonction de tous les clients et de l'heure forcée du créneau
+            recalculerHorairesVehicule(planning, config, aeroport, distances, lieux, heureDepartForcee);
             
         } catch (java.time.format.DateTimeParseException e) {
             System.err.println("Erreur de parsing de la date: " + e.getMessage());
@@ -264,14 +345,9 @@ public class PlanningController {
     
     /**
      * Recalcule les horaires de départ et retour du véhicule en fonction de tous ses clients
-     * 
-     * Logique:
-     * - heureArriveeHotel du ClientInfo = heure d'arrivée du client à l'aéroport (= heure départ véhicule)
-     * - Calcul itinéraire: aéroport -> hotel1 + temps_attente -> hotel2 + temps_attente -> ... -> retour aéroport
-     * - Heure retour = heure départ + temps total
      */
     private void recalculerHorairesVehicule(VehiclePlanningDTO planning, PlanningConfig config,
-                                            Lieu aeroport, List<Distance> distances, List<Lieu> lieux) {
+                                            Lieu aeroport, List<Distance> distances, List<Lieu> lieux, java.time.LocalDateTime heureDepartForcee) {
         if (planning.getClients().isEmpty()) return;
         
         List<ClientInfo> clients = planning.getClients();
@@ -324,18 +400,21 @@ public class PlanningController {
         double tempsRetour = distanceRetour / config.getVitesseMoyenne();
         tempsTotal += tempsRetour;
         
-        // L'heure de départ du véhicule = heure d'arrivée du DERNIER client du groupe à l'aéroport.
+        // L'heure de départ du véhicule est forcée par l'heure max du créneau (si fournie)
+        // Sinon, on garde l'ancienne logique
         try {
-            java.time.LocalDateTime heureDepartVehicule = null;
+            java.time.LocalDateTime heureDepartVehicule = heureDepartForcee;
 
-            for (ClientInfo client : clients) {
-                String heureArrivee = client.getHeureArriveeHotel();
-                String[] parts = heureArrivee.split(":");
-                java.time.LocalDateTime heureClient = java.time.LocalDate.now()
-                    .atTime(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
+            if (heureDepartVehicule == null) {
+                for (ClientInfo client : clients) {
+                    String heureArrivee = client.getHeureArriveeHotel();
+                    String[] parts = heureArrivee.split(":");
+                    java.time.LocalDateTime heureClient = java.time.LocalDate.now()
+                        .atTime(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
 
-                if (heureDepartVehicule == null || heureClient.isAfter(heureDepartVehicule)) {
-                    heureDepartVehicule = heureClient;
+                    if (heureDepartVehicule == null || heureClient.isAfter(heureDepartVehicule)) {
+                        heureDepartVehicule = heureClient;
+                    }
                 }
             }
 
@@ -375,7 +454,8 @@ public class PlanningController {
                                                 List<ReservationEnrichi> reservationsRestantes,
                                                 PlanningConfig config, Lieu aeroport, 
                                                 List<Distance> distances, List<Lieu> lieux,
-                                                ReservationEnrichi reservationReferenceFenetre) {
+                                                ReservationEnrichi reservationReferenceFenetre,
+                                                java.time.LocalDateTime heureDepartForcee) {
         boolean peutAjouterDautres = true;
         
         // Continuer tant qu'on peut ajouter des réservations
@@ -390,15 +470,8 @@ public class PlanningController {
                 ReservationEnrichi r = reservationsRestantes.get(i);
                 int nbPassagers = r.reservation.getNbPassager();
 
-                boolean compatibleFenetre = estCompatibleFenetreHoraire(
-                    reservationReferenceFenetre.reservation,
-                    r.reservation,
-                    config
-                );
-                
-                // Si cette réservation peut entrer, respecte la fenêtre
-                // et a plus de passagers que le meilleur candidat actuel
-                if (planning.peutAccueillir(nbPassagers) && compatibleFenetre && nbPassagers > maxPassagers) {
+                // Si cette réservation peut entrer (elles sont déjà dans le même créneau donc compatibles temporellement)
+                if (planning.peutAccueillir(nbPassagers) && nbPassagers > maxPassagers) {
                     indexMeilleurCandidat = i;
                     maxPassagers = nbPassagers;
                 }
@@ -407,7 +480,7 @@ public class PlanningController {
             // Si on a trouvé un candidat compatible
             if (indexMeilleurCandidat != -1) {
                 ReservationEnrichi meilleurCandidat = reservationsRestantes.remove(indexMeilleurCandidat);
-                ajouterClientAuVehicule(planning, meilleurCandidat, config, aeroport, distances, lieux);
+                ajouterClientAuVehicule(planning, meilleurCandidat, config, aeroport, distances, lieux, heureDepartForcee);
                 peutAjouterDautres = true; // On continue à chercher d'autres réservations
             }
         }
@@ -444,33 +517,152 @@ public class PlanningController {
             return null;
         }
     }
+
+    private Lieu trouverLieuPourReservation(Reservation reservation, List<Lieu> lieux) {
+        if (reservation == null || lieux == null || lieux.isEmpty()) {
+            return null;
+        }
+
+        Lieu lieuParId = lieux.stream()
+            .filter(l -> l.getId() == reservation.getIdHotel())
+            .findFirst()
+            .orElse(null);
+        if (lieuParId != null) {
+            return lieuParId;
+        }
+
+        String nomHotel = reservation.getHotel();
+        if (nomHotel == null || nomHotel.trim().isEmpty()) {
+            return null;
+        }
+
+        return lieux.stream()
+            .filter(l -> l.getLibelle().toLowerCase().contains(nomHotel.toLowerCase())
+                      || nomHotel.toLowerCase().contains(l.getLibelle().toLowerCase()))
+            .findFirst()
+            .orElse(null);
+    }
+
+    private Map<String, List<Reservation>> grouperReservationsParCreneau(List<Reservation> reservations,
+                                                                          int intervalleMinutes) {
+        Map<String, List<Reservation>> groupes = new LinkedHashMap<>();
+        int pasMinutes = intervalleMinutes > 0 ? intervalleMinutes : 30;
+
+        if (reservations == null || reservations.isEmpty()) {
+            return groupes;
+        }
+
+        for (Reservation reservation : reservations) {
+            java.time.LocalDateTime dateHeure = parserDateHeureReservation(reservation.getDateHeureDepart());
+            String cleCreneau;
+
+            if (dateHeure == null) {
+                cleCreneau = "Horaire invalide";
+            } else {
+                int totalMinutes = dateHeure.getHour() * 60 + dateHeure.getMinute();
+                int debutCreneauMinutes = (totalMinutes / pasMinutes) * pasMinutes;
+                int finCreneauMinutes = debutCreneauMinutes + pasMinutes;
+                cleCreneau = formaterCreneau(debutCreneauMinutes, finCreneauMinutes);
+            }
+
+            groupes.computeIfAbsent(cleCreneau, k -> new ArrayList<>()).add(reservation);
+        }
+
+        return groupes;
+    }
+
+    private String formaterCreneau(int debutMinutes, int finMinutes) {
+        int debutHeure = (debutMinutes / 60) % 24;
+        int debutMinute = debutMinutes % 60;
+        int finHeure = (finMinutes / 60) % 24;
+        int finMinute = finMinutes % 60;
+
+        return String.format("%02d:%02d - %02d:%02d", debutHeure, debutMinute, finHeure, finMinute);
+    }
     
     /**
-     * Trouve le véhicule optimal parmi les véhicules disponibles (non encore utilisés)
+     * Trouve le véhicule optimal pour une réservation.
+     *
+     * Un véhicule est éligible s'il:
+     * - a assez de places pour la réservation courante
+     * - est non utilisé, ou déjà de retour à l'aéroport avant l'heure de la réservation
      */
-    private Vehicule trouverVehiculeOptimal(List<Vehicule> tousVehicules, 
-                                            List<VehiclePlanningDTO> planningsExistants, 
-                                            int nbPassagers) {
-        // Filtrer les véhicules déjà utilisés
-        List<Integer> idsUtilises = planningsExistants.stream()
-            .map(VehiclePlanningDTO::getIdVehicule)
-            .collect(java.util.stream.Collectors.toList());
-        
+    private Vehicule trouverVehiculeOptimal(List<Vehicule> tousVehicules,
+                                            List<VehiclePlanningDTO> planningsExistants,
+                                            Reservation reservationCandidate,
+                                            java.time.LocalDateTime heureDepartPrevue) {
+        int nbPassagers = reservationCandidate != null ? reservationCandidate.getNbPassager() : 0;
+
         List<Vehicule> vehiculesDisponibles = tousVehicules.stream()
-            .filter(v -> !idsUtilises.contains(v.getId()))
+            .filter(v -> estVehiculeDisponiblePourReservation(v.getId(), planningsExistants, heureDepartPrevue))
             .collect(java.util.stream.Collectors.toList());
-        
-        return trouverVehiculeOptimal(vehiculesDisponibles, nbPassagers);
+
+        return trouverVehiculeOptimal(vehiculesDisponibles, nbPassagers, planningsExistants);
+    }
+
+    private boolean estVehiculeDisponiblePourReservation(int idVehicule,
+                                                         List<VehiclePlanningDTO> planningsExistants,
+                                                         java.time.LocalDateTime dateHeureReservation) {
+        if (planningsExistants == null || planningsExistants.isEmpty()) {
+            return true;
+        }
+
+        List<VehiclePlanningDTO> planningsVehicule = planningsExistants.stream()
+            .filter(p -> p.getIdVehicule() == idVehicule)
+            .collect(java.util.stream.Collectors.toList());
+
+        if (planningsVehicule.isEmpty()) {
+            return true;
+        }
+
+        if (dateHeureReservation == null) {
+            return true;
+        }
+
+        java.time.LocalDateTime dernierRetour = planningsVehicule.stream()
+            .map(this::extraireHeureRetourPlanning)
+            .filter(h -> h != null)
+            .max(java.time.LocalDateTime::compareTo)
+            .orElse(null);
+
+        if (dernierRetour == null) {
+            return false;
+        }
+
+        return !dernierRetour.isAfter(dateHeureReservation);
+    }
+
+    private java.time.LocalDateTime extraireHeureRetourPlanning(VehiclePlanningDTO planning) {
+        if (planning == null) {
+            return null;
+        }
+
+        if (planning.getHeureRetourParsed() != null) {
+            return planning.getHeureRetourParsed();
+        }
+
+        String heureRetour = planning.getDateHeureRetour();
+        if (heureRetour == null || heureRetour.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            java.time.LocalTime h = java.time.LocalTime.parse(heureRetour);
+            return java.time.LocalDate.now().atTime(h);
+        } catch (Exception e) {
+            return null;
+        }
     }
     
     
     /**
      * Trouve le véhicule optimal selon les règles métier :
      * 1. Places minimales mais >= nb_passagers
-     * 2. Si plusieurs véhicules : priorité diesel > essence
-     * 3. Si égalité totale : random
+     * 2. Le moins de courses effectuées (nouveau critère)
+     * 3. Si plusieurs véhicules : priorité diesel > essence
+     * 4. Si égalité totale : random
      */
-    private Vehicule trouverVehiculeOptimal(List<Vehicule> vehiculesDisponibles, int nbPassagers) {
+    private Vehicule trouverVehiculeOptimal(List<Vehicule> vehiculesDisponibles, int nbPassagers, List<VehiclePlanningDTO> planningsExistants) {
         List<Vehicule> candidats = new ArrayList<>();
         
         // Filtrer les véhicules avec assez de places
@@ -484,7 +676,7 @@ public class PlanningController {
             return null;
         }
         
-        // Trouver le nombre de places minimal parmi les candidats
+        // 1. Trouver le nombre de places minimal parmi les candidats
         int placesMin = candidats.stream()
             .mapToInt(Vehicule::getPlace)
             .min()
@@ -495,12 +687,32 @@ public class PlanningController {
             .filter(v -> v.getPlace() == placesMin)
             .collect(java.util.stream.Collectors.toList());
         
-        // Si un seul candidat, le retourner
+        if (candidats.size() == 1) {
+            return candidats.get(0);
+        }
+
+        // 2. NOUVEAU CRITERE : Le moins de courses possibles
+        java.util.Map<Integer, Long> compteurCourses = new java.util.HashMap<>();
+        if (planningsExistants != null) {
+            for (VehiclePlanningDTO p : planningsExistants) {
+                compteurCourses.put(p.getIdVehicule(), compteurCourses.getOrDefault(p.getIdVehicule(), 0L) + 1L);
+            }
+        }
+
+        long minCourses = candidats.stream()
+            .mapToLong(v -> compteurCourses.getOrDefault(v.getId(), 0L))
+            .min()
+            .orElse(0L);
+
+        candidats = candidats.stream()
+            .filter(v -> compteurCourses.getOrDefault(v.getId(), 0L) == minCourses)
+            .collect(java.util.stream.Collectors.toList());
+
         if (candidats.size() == 1) {
             return candidats.get(0);
         }
         
-        // Priorité diesel
+        // 3. Priorité diesel
         List<Vehicule> diesels = candidats.stream()
             .filter(v -> v.getTypeCarburant().equalsIgnoreCase("diesel"))
             .collect(java.util.stream.Collectors.toList());
@@ -510,7 +722,7 @@ public class PlanningController {
             return diesels.get(new java.util.Random().nextInt(diesels.size()));
         }
         
-        // Sinon prendre random parmi les essences
+        // 4. Sinon prendre random parmi les essences
         return candidats.get(new java.util.Random().nextInt(candidats.size()));
     }
     
@@ -593,17 +805,10 @@ public class PlanningController {
             // Enrichir les réservations avec les informations de distance
             List<ReservationEnrichi> reservationsEnrichies = new ArrayList<>();
             for (Reservation r : reservations) {
-                Lieu lieuHotel = lieux.stream()
-                    .filter(l -> l.getLibelle().toLowerCase().contains(r.getHotel().toLowerCase()) 
-                              || r.getHotel().toLowerCase().contains(l.getLibelle().toLowerCase()))
-                    .findFirst()
-                    .orElse(null);
-                
+                Lieu lieuHotel = trouverLieuPourReservation(r, lieux);
                 if (lieuHotel != null) {
                     double distanceFromAeroport = Distance.getDistanceBetween(aeroport.getId(), lieuHotel.getId(), distances);
-                    if (distanceFromAeroport > 0) {
-                        reservationsEnrichies.add(new ReservationEnrichi(r, lieuHotel, distanceFromAeroport));
-                    }
+                    reservationsEnrichies.add(new ReservationEnrichi(r, lieuHotel, Math.max(0.0, distanceFromAeroport)));
                 }
             }
             
@@ -616,21 +821,46 @@ public class PlanningController {
             
             // Recréer le planning pour retrouver les clients assignés à ce véhicule
             List<VehiclePlanningDTO> plannings = new ArrayList<>();
-            List<ReservationEnrichi> reservationsRestantes = new ArrayList<>(reservationsEnrichies);
             
-            // Assignation des réservations (même logique que getPlanningResult)
-            while (!reservationsRestantes.isEmpty()) {
-                ReservationEnrichi r = reservationsRestantes.remove(0);
+            // Refaire le groupement par créneau (exactement comme dans getPlanningResult)
+            int pasMinutes = config != null && config.getTempsAttente() > 0 ? config.getTempsAttente() : 30;
+            Map<String, List<ReservationEnrichi>> reservationsParCreneau = new LinkedHashMap<>();
+            
+            for (ReservationEnrichi r : reservationsEnrichies) {
+                java.time.LocalDateTime dateHeure = parserDateHeureReservation(r.reservation.getDateHeureDepart());
+                String cleCreneau = "Inconnu";
+                if (dateHeure != null) {
+                    int totalMinutes = dateHeure.getHour() * 60 + dateHeure.getMinute();
+                    int debutCreneauMinutes = (totalMinutes / pasMinutes) * pasMinutes;
+                    int finCreneauMinutes = debutCreneauMinutes + pasMinutes;
+                    cleCreneau = formaterCreneau(debutCreneauMinutes, finCreneauMinutes);
+                }
+                reservationsParCreneau.computeIfAbsent(cleCreneau, k -> new ArrayList<>()).add(r);
+            }
+            
+            // Assignation des réservations creneau par creneau
+            for (Map.Entry<String, List<ReservationEnrichi>> entry : reservationsParCreneau.entrySet()) {
+                List<ReservationEnrichi> resDansCreneau = entry.getValue();
                 
-                Vehicule v = trouverVehiculeOptimal(vehicules, plannings, r.reservation.getNbPassager());
+                java.time.LocalDateTime heureMaxCreneau = null;
+                for(ReservationEnrichi r : resDansCreneau) {
+                    java.time.LocalDateTime dh = parserDateHeureReservation(r.reservation.getDateHeureDepart());
+                    if (dh != null && (heureMaxCreneau == null || dh.isAfter(heureMaxCreneau))) {
+                        heureMaxCreneau = dh;
+                    }
+                }
                 
-                if (v != null) {
-                    VehiclePlanningDTO nouveauPlanning = new VehiclePlanningDTO(v.getId(), v.getReference(), v.getPlace());
-                    ajouterClientAuVehicule(nouveauPlanning, r, config, aeroport, distances, lieux);
-                    plannings.add(nouveauPlanning);
+                while (!resDansCreneau.isEmpty()) {
+                    ReservationEnrichi r = resDansCreneau.remove(0);
+                    Vehicule v = trouverVehiculeOptimal(vehicules, plannings, r.reservation, heureMaxCreneau);
                     
-                    // MAXIMISER ce véhicule avec les réservations restantes
-                    remplirPlacesRestantesOptimal(nouveauPlanning, reservationsRestantes, config, aeroport, distances, lieux, r);
+                    if (v != null) {
+                        VehiclePlanningDTO nouveauPlanning = new VehiclePlanningDTO(v.getId(), v.getReference(), v.getPlace());
+                        ajouterClientAuVehicule(nouveauPlanning, r, config, aeroport, distances, lieux, heureMaxCreneau);
+                        plannings.add(nouveauPlanning);
+                        
+                        remplirPlacesRestantesOptimal(nouveauPlanning, resDansCreneau, config, aeroport, distances, lieux, r, heureMaxCreneau);
+                    }
                 }
             }
             

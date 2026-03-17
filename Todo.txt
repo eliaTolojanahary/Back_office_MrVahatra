@@ -295,3 +295,18 @@ Créer le script (actuel) pour les données de teste
 	Métier :
 	Base : distance, lieu, client, planning, reservation
 	Qui : Manoa
+
+
+Sprint 3 18/03/2026
+TL : RasolofoHarilala Sandaniaina Manoa ETU003200
+BackOffice : Tolojanahary Elia Nantenanaina ETU003230
+BackOffice : Rahajarijaona Mir ETU003132
+
+Les vehicules peuvent maintenant retourner à l'aéroport et prendre une nouvelle réservation
+    Affichage : 
+    Métier :
+	Fonction : 
+		estVehiculeDisponiblePourReservation(planningVehicule, reservation, config)
+	Classe : PlanningController()
+    Base : planning_config, parametre_vehicule, reservation, lieu
+    Qui : Mir

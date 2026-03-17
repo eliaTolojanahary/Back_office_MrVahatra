@@ -15,9 +15,9 @@ public class Planning {
     public static List<Reservation> getReservationsByDate(Connection conn, String date) throws SQLException {
         List<Reservation> reservations = new ArrayList<>();
         
-        String sql = "SELECT r.id, r.client, r.id_hotel, h.libelle as hotel, r.nb_passager, r.date_heure_depart " +
-                     "FROM reservation r " +
-                     "JOIN lieu h ON r.id_hotel = h.id " +
+        String sql = "SELECT r.id, r.client, r.id_hotel, l.libelle as hotel, r.nb_passager, r.date_heure_depart " +
+                 "FROM reservation r " +
+                 "LEFT JOIN lieu l ON r.id_hotel = l.id " +
                      "WHERE DATE(r.date_heure_depart) = ?::date " +
                      "ORDER BY r.date_heure_depart";
         

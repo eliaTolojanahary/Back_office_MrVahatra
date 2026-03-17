@@ -1,5 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.List" %>
+<%@ page import="java.util.Map" %>
 <%@ page import="models.Reservation" %>
 <%@ page import="models.PlanningConfig" %>
 <!DOCTYPE html>
@@ -7,7 +8,7 @@
 <head>
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <meta charset="UTF-8">
-    <title>Réservations - <%= request.getAttribute("datePlanning") %></title>
+    <title>Liste des réservations</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -129,6 +130,39 @@
             background-color: #FFF3CD;
             color: #856404;
         }
+        .slot-block {
+            margin-bottom: 30px;
+        }
+        .slot-title {
+            margin: 0 0 12px 0;
+            padding: 10px 12px;
+            border-left: 4px solid #1976D2;
+            background-color: #f0f7ff;
+            color: #0d47a1;
+            font-size: 18px;
+        }
+        .filter-form {
+            display: flex;
+            gap: 10px;
+            align-items: end;
+            margin-bottom: 20px;
+            padding: 14px;
+            background-color: #f7f9fc;
+            border: 1px solid #e3e8ef;
+            border-radius: 6px;
+        }
+        .filter-form label {
+            font-weight: bold;
+            color: #333;
+            display: block;
+            margin-bottom: 6px;
+        }
+        .filter-form input[type="date"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 15px;
+        }
     </style>
 </head>
 <body>
@@ -137,11 +171,25 @@
             List<Reservation> reservations = (List<Reservation>) request.getAttribute("reservations");
             Integer count = (Integer) request.getAttribute("count");
             PlanningConfig planning_config = (PlanningConfig) request.getAttribute("config");
+            Map<String, List<Reservation>> reservationsParCreneau = (Map<String, List<Reservation>>) request.getAttribute("reservationsParCreneau");
             String error = (String) request.getAttribute("error");
             String datePlanning = (String) request.getAttribute("datePlanning");
+            Boolean reservationListPage = (Boolean) request.getAttribute("reservationListPage");
+            boolean isReservationListPage = reservationListPage != null && reservationListPage;
         %>
         
-        <h1><span style="font-size:1.2em;vertical-align:middle;" class="material-icons">assignment</span> Réservations du <%= datePlanning %></h1>
+        <h1><span style="font-size:1.2em;vertical-align:middle;" class="material-icons">assignment</span> Liste des réservations</h1>
+
+        <% if (isReservationListPage) { %>
+            <form class="filter-form" onsubmit="return false;">
+                <div>
+                    <label for="dateReservation">Filtrer par date</label>
+                    <input type="date" id="dateReservation" name="dateReservation" value="<%= datePlanning != null ? datePlanning : "" %>">
+                </div>
+                <button type="button" class="btn btn-secondary" onclick="appliquerFiltreDate()">Filtrer</button>
+                <button type="button" class="btn btn-secondary" onclick="reinitialiserFiltreDate()">Réinitialiser</button>
+            </form>
+        <% } %>
         
         <% if (error != null) { %>
             <div class="error">
@@ -165,7 +213,39 @@
                 <% } %>
             </div>
             
-            <% if (reservations != null && !reservations.isEmpty()) { %>
+            <% if (reservationsParCreneau != null && !reservationsParCreneau.isEmpty()) { %>
+                <% for (Map.Entry<String, List<Reservation>> creneau : reservationsParCreneau.entrySet()) { %>
+                    <div class="slot-block">
+                        <h2 class="slot-title">
+                            Créneau <%= creneau.getKey() %> - <%= creneau.getValue().size() %> réservation(s)
+                        </h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Client</th>
+                                    <th>Hôtel</th>
+                                    <th>Passagers</th>
+                                    <th>Date/Heure Arrivée</th>
+                                    <th>Statut</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% for (Reservation r : creneau.getValue()) { %>
+                                    <tr>
+                                        <td>#<%= r.getId() %></td>
+                                        <td><strong><%= r.getClient() %></strong></td>
+                                        <td><%= r.getHotel() %></td>
+                                        <td><%= r.getNbPassager() %> personne(s)</td>
+                                        <td><%= r.getDateHeureDepart() %></td>
+                                        <td><span class="badge badge-pending">En attente</span></td>
+                                    </tr>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+            <% } else if (reservations != null && !reservations.isEmpty()) { %>
                 <table>
                     <thead>
                         <tr>
@@ -179,7 +259,7 @@
                     </thead>
                     <tbody>
                         <% for (Reservation r : reservations) { %>
-                            <tr>
+                            <tr data-reservation-datetime="<%= r.getDateHeureDepart() %>">
                                 <td>#<%= r.getId() %></td>
                                 <td><strong><%= r.getClient() %></strong></td>
                                 <td><%= r.getHotel() %></td>
@@ -192,13 +272,14 @@
                 </table>
             <% } else { %>
                 <div class="no-data">
-                    <span class="material-icons" style="font-size:1.2em;vertical-align:middle;">mail</span> Aucune réservation trouvée pour cette date
+                    <span class="material-icons" style="font-size:1.2em;vertical-align:middle;">mail</span>
+                    <%= isReservationListPage ? "Aucune réservation pour cette date" : "Aucune réservation trouvée pour cette date" %>
                 </div>
             <% } %>
         <% } %>
         
         <div class="button-group">
-            <% if (reservations != null && !reservations.isEmpty()) { %>
+            <% if (!isReservationListPage && reservations != null && !reservations.isEmpty()) { %>
                 <form action="<%= request.getContextPath() %>/planning/result" method="POST" style="display:inline;">
                     <input type="hidden" name="datePlanning" value="<%= datePlanning %>">
                     <button type="submit" class="btn btn-primary">
@@ -206,11 +287,42 @@
                     </button>
                 </form>
             <% } %>
-            <a href="<%= request.getContextPath() %>/planning/selection-date" 
+            <a href="<%= isReservationListPage ? request.getContextPath() + "/reservation/reservation/form" : request.getContextPath() + "/planning/selection-date" %>" 
                class="btn btn-secondary">
-                <span class="material-icons" style="font-size:1.2em;vertical-align:middle;">arrow_back</span> Changer de Date
+                <span class="material-icons" style="font-size:1.2em;vertical-align:middle;">arrow_back</span>
+                <%= isReservationListPage ? "Nouvelle réservation" : "Changer de Date" %>
             </a>
         </div>
     </div>
 </body>
+<script>
+function extraireDate(texteDateHeure) {
+    if (!texteDateHeure) return "";
+    var valeur = texteDateHeure.trim();
+    if (valeur.length >= 10) {
+        return valeur.substring(0, 10);
+    }
+    return "";
+}
+
+function appliquerFiltreDate() {
+    var input = document.getElementById("dateReservation");
+    if (!input) return;
+    var dateChoisie = input.value;
+    var lignes = document.querySelectorAll("tr[data-reservation-datetime]");
+    for (var i = 0; i < lignes.length; i++) {
+        var ligne = lignes[i];
+        var dateLigne = extraireDate(ligne.getAttribute("data-reservation-datetime"));
+        ligne.style.display = (!dateChoisie || dateLigne === dateChoisie) ? "" : "none";
+    }
+}
+
+function reinitialiserFiltreDate() {
+    var input = document.getElementById("dateReservation");
+    if (input) {
+        input.value = "";
+    }
+    appliquerFiltreDate();
+}
+</script>
 </html>
