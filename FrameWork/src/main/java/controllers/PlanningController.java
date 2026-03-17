@@ -209,6 +209,7 @@ public class PlanningController {
             
             int pasMinutes = config != null && config.getTempsAttente() > 0 ? config.getTempsAttente() : 30;
             Map<String, List<ReservationEnrichi>> reservationsParCreneau = new LinkedHashMap<>();
+            List<VehiclePlanningDTO> planningsTousLesCreneaux = new ArrayList<>(); // Pour vérifier la disponibilité globale et le nb de courses
             
             for (ReservationEnrichi r : reservationsEnrichies) {
                 java.time.LocalDateTime dateHeure = parserDateHeureReservation(r.reservation.getDateHeureDepart());
@@ -248,7 +249,7 @@ public class PlanningController {
 
                 while (!resDansCreneau.isEmpty()) {
                     ReservationEnrichi r = resDansCreneau.remove(0);
-                    Vehicule vehicule = trouverVehiculeOptimal(vehicules, planningsCurrentCreneau, r.reservation, heureMaxCreneau);
+                    Vehicule vehicule = trouverVehiculeOptimal(vehicules, planningsTousLesCreneaux, r.reservation, heureMaxCreneau);
                     
                     if (vehicule != null) {
                         VehiclePlanningDTO nouveauPlanning = new VehiclePlanningDTO(
@@ -258,6 +259,7 @@ public class PlanningController {
                         );
                         ajouterClientAuVehicule(nouveauPlanning, r, config, aeroport, distances, lieux, heureMaxCreneau);
                         planningsCurrentCreneau.add(nouveauPlanning);
+                        planningsTousLesCreneaux.add(nouveauPlanning);
                         
                         remplirPlacesRestantesOptimal(nouveauPlanning, resDansCreneau, config, aeroport, distances, lieux, r, heureMaxCreneau);
                     } else {
@@ -595,7 +597,7 @@ public class PlanningController {
             .filter(v -> estVehiculeDisponiblePourReservation(v.getId(), planningsExistants, heureDepartPrevue))
             .collect(java.util.stream.Collectors.toList());
 
-        return trouverVehiculeOptimal(vehiculesDisponibles, nbPassagers);
+        return trouverVehiculeOptimal(vehiculesDisponibles, nbPassagers, planningsExistants);
     }
 
     private boolean estVehiculeDisponiblePourReservation(int idVehicule,
@@ -656,10 +658,11 @@ public class PlanningController {
     /**
      * Trouve le véhicule optimal selon les règles métier :
      * 1. Places minimales mais >= nb_passagers
-     * 2. Si plusieurs véhicules : priorité diesel > essence
-     * 3. Si égalité totale : random
+     * 2. Le moins de courses effectuées (nouveau critère)
+     * 3. Si plusieurs véhicules : priorité diesel > essence
+     * 4. Si égalité totale : random
      */
-    private Vehicule trouverVehiculeOptimal(List<Vehicule> vehiculesDisponibles, int nbPassagers) {
+    private Vehicule trouverVehiculeOptimal(List<Vehicule> vehiculesDisponibles, int nbPassagers, List<VehiclePlanningDTO> planningsExistants) {
         List<Vehicule> candidats = new ArrayList<>();
         
         // Filtrer les véhicules avec assez de places
@@ -673,7 +676,7 @@ public class PlanningController {
             return null;
         }
         
-        // Trouver le nombre de places minimal parmi les candidats
+        // 1. Trouver le nombre de places minimal parmi les candidats
         int placesMin = candidats.stream()
             .mapToInt(Vehicule::getPlace)
             .min()
@@ -684,12 +687,32 @@ public class PlanningController {
             .filter(v -> v.getPlace() == placesMin)
             .collect(java.util.stream.Collectors.toList());
         
-        // Si un seul candidat, le retourner
+        if (candidats.size() == 1) {
+            return candidats.get(0);
+        }
+
+        // 2. NOUVEAU CRITERE : Le moins de courses possibles
+        java.util.Map<Integer, Long> compteurCourses = new java.util.HashMap<>();
+        if (planningsExistants != null) {
+            for (VehiclePlanningDTO p : planningsExistants) {
+                compteurCourses.put(p.getIdVehicule(), compteurCourses.getOrDefault(p.getIdVehicule(), 0L) + 1L);
+            }
+        }
+
+        long minCourses = candidats.stream()
+            .mapToLong(v -> compteurCourses.getOrDefault(v.getId(), 0L))
+            .min()
+            .orElse(0L);
+
+        candidats = candidats.stream()
+            .filter(v -> compteurCourses.getOrDefault(v.getId(), 0L) == minCourses)
+            .collect(java.util.stream.Collectors.toList());
+
         if (candidats.size() == 1) {
             return candidats.get(0);
         }
         
-        // Priorité diesel
+        // 3. Priorité diesel
         List<Vehicule> diesels = candidats.stream()
             .filter(v -> v.getTypeCarburant().equalsIgnoreCase("diesel"))
             .collect(java.util.stream.Collectors.toList());
@@ -699,7 +722,7 @@ public class PlanningController {
             return diesels.get(new java.util.Random().nextInt(diesels.size()));
         }
         
-        // Sinon prendre random parmi les essences
+        // 4. Sinon prendre random parmi les essences
         return candidats.get(new java.util.Random().nextInt(candidats.size()));
     }
     

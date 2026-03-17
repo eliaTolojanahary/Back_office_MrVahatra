@@ -206,10 +206,11 @@
                 <strong>Règles de gestion :</strong><br>
                 1. Les clients sont inséparables<br>
                 2. On assigne les clients au véhicule ayant le nombre de places le plus proche du nombre de passagers<br>
-                3. Si plusieurs véhicules ont le même nombre de places, priorité au diesel<br>
-                4. Si égalité, on choisit au hasard<br>
-                5. Les réservations avec le plus de personnes sont prioritaires<br>
-                6. Le lieu le plus proche de l'aéroport est visité en premier<br>
+                3. Si on doit réutiliser un véhicule, la priorité est donnée à celui qui a effectué le moins de courses (qui a été le moins utilisé)<br>
+                4. Si plusieurs véhicules sont ex-aequo, priorité au diesel<br>
+                5. Si égalité totale, on choisit au hasard<br>
+                6. Les réservations avec le plus de personnes sont prioritaires<br>
+                7. Le lieu le plus proche de l'aéroport est visité en premier<br>
             </div>
             <div class="malagasy">
                 <strong>Fitsipika :</strong><br>
