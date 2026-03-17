@@ -81,6 +81,9 @@ public class ReservationController {
     public ModelView getAllReservations() {
         ModelView mv = new ModelView("/listReservationsByDate.jsp");
         List<Reservation> reservations = new ArrayList<>();
+        mv.addData("reservationListPage", true);
+        mv.addData("datePlanning", "");
+
         String sql = "SELECT r.id, r.client, r.id_hotel, h.nom AS hotel, r.nb_passager, r.date_heure_depart " +
             "FROM reservation r JOIN hotel h ON r.id_hotel = h.id " +
             "ORDER BY r.date_heure_depart";

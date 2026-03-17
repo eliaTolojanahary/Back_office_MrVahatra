@@ -68,70 +68,88 @@
                        if (plannings != null && !plannings.isEmpty()) {
                            for (VehiclePlanningDTO planning : plannings) { %>
                         <tr>
-                            <td class="vehicle-id">
-                                <form action="<%= request.getContextPath() %>/planning/vehicule-detail" method="post" style="display: inline; margin: 0;">
-                                    <input type="hidden" name="idVehicule" value="<%= planning.getIdVehicule() %>">
-                                    <input type="hidden" name="datePlanning" value="<%= datePlanning != null ? datePlanning : "" %>">
-                                    <button type="submit" class="vehicle-id-link" title="Voir les détails du véhicule"><%= planning.getIdVehicule() %></button>
-                                </form>
-                            </td>
-                            <td><%= planning.getReferenceVehicule() %></td>
-                            <td>
-                                <ul class="client-list">
-                                    <% for (models.ClientInfo client : planning.getClients()) { %>
-                                        <li>
-                                            <span class="client-name"><%= client.getNomClient() %></span><br/>
-                                            <span class="client-details">
-                                                <%= client.getNbPassager() %> passager(s) - 
-                                                <%= client.getHotel() %><br/>
-                                                Arrivée: <%= client.getHeureArriveeHotel() %>
-                                            </span>
-                                        </li>
-                                    <% } %>
-                                </ul>
-                            </td>
-                            <td><%= planning.getDateHeureDepart() %></td>
-                            <td><%= planning.getDateHeureRetour() %></td>
-                            <td><%= planning.getPlacesOccupees() %> / <%= planning.getPlacesTotales() %></td>
+                            <th>ID</th>
+                            <th>Véhicule / <span class="malagasy">Fiara</span></th>
+                            <th>Clients / <span class="malagasy">Mpandeha</span></th>
+                            <th>Heure départ / <span class="malagasy">Ora fiaingana</span></th>
+                            <th>Heure retour / <span class="malagasy">Ora fiverenana</span></th>
+                            <th>Trajet aller / Distance aller</th>
+                            <th>Places occupées / <span class="malagasy">Toerana feno</span></th>
                         </tr>
-                    <%   }
-                       } else { %>
-                        <tr><td colspan="9" style="text-align:center;">Aucune réservation assignée / <span class="malagasy">Tsy misy voatokana</span></td></tr>
-                    <% } %>
-                </tbody>
-            </table>
-        </div>
-        <div class="table-section">
-            <h2>Réservations non assignées / <span class="malagasy">Tsy voatokana</span></h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Client / <span class="malagasy">Mpandeha</span></th>
-                        <th>Nb passagers / <span class="malagasy">Isan'ny mpandeha</span></th>
-                        <th>Date arrivée / <span class="malagasy">Daty fahatongavana</span></th>
-                        <th>Hôtel / <span class="malagasy">Hotel</span></th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% List<ReservationDTO> unassigned = (List<ReservationDTO>) request.getAttribute("unassigned");
-                       if (unassigned != null && !unassigned.isEmpty()) {
-                           for (ReservationDTO r : unassigned) { %>
+                    </thead>
+                    <tbody>
+                        <% if (plannings != null && !plannings.isEmpty()) {
+                               for (VehiclePlanningDTO planning : plannings) { %>
+                            <tr>
+                                <td class="vehicle-id">
+                                    <form action="<%= request.getContextPath() %>/planning/vehicule-detail" method="post" style="display: inline; margin: 0;">
+                                        <input type="hidden" name="idVehicule" value="<%= planning.getIdVehicule() %>">
+                                        <input type="hidden" name="datePlanning" value="<%= datePlanning != null ? datePlanning : "" %>">
+                                        <button type="submit" class="vehicle-id-link" title="Voir les détails du véhicule"><%= planning.getIdVehicule() %></button>
+                                    </form>
+                                </td>
+                                <td><%= planning.getReferenceVehicule() %></td>
+                                <td>
+                                    <ul class="client-list">
+                                        <% for (models.ClientInfo client : planning.getClients()) { %>
+                                            <li>
+                                                <span class="client-name"><%= client.getNomClient() %></span><br/>
+                                                <span class="client-details">
+                                                    <%= client.getNbPassager() %> passager(s) - 
+                                                    <%= client.getHotel() %><br/>
+                                                    Arrivée: <%= client.getHeureArriveeHotel() %>
+                                                </span>
+                                            </li>
+                                        <% } %>
+                                    </ul>
+                                </td>
+                                <td><%= planning.getDateHeureDepart() %></td>
+                                <td><%= planning.getDateHeureRetour() %></td>
+                                <td>
+                                    <div><%= planning.getTrajetResume() != null ? planning.getTrajetResume() : "-" %></div>
+                                    <div class="client-details"><%= String.format("%.2f", planning.getDistanceParcourueKm()) %> km</div>
+                                </td>
+                                <td><%= planning.getPlacesOccupees() %> / <%= planning.getPlacesTotales() %></td>
+                            </tr>
+                        <%   }
+                           } else { %>
+                            <tr><td colspan="7" style="text-align:center;">Aucune réservation assignée dans ce créneau / <span class="malagasy">Tsy misy voatokana</span></td></tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="table-section">
+                <h2>Réservations non assignées / <span class="malagasy">Tsy voatokana</span></h2>
+                <table>
+                    <thead>
                         <tr>
-                            <td><%= r.getId() %></td>
-                            <td><%= r.getClient() %></td>
-                            <td><%= r.getNbPassager() %></td>
-                            <td><%= r.getDateHeureArrivee() %></td>
-                            <td><%= r.getHotel() %></td>
-                            <td><span class="badge badge-unassigned">Non assignée / <span class="malagasy">Tsy voatokana</span></span></td>
+                            <th>ID</th>
+                            <th>Client / <span class="malagasy">Mpandeha</span></th>
+                            <th>Nb passagers / <span class="malagasy">Isan'ny mpandeha</span></th>
+                            <th>Date arrivée / <span class="malagasy">Daty fahatongavana</span></th>
+                            <th>Hôtel / <span class="malagasy">Hotel</span></th>
+                            <th>Status</th>
                         </tr>
-                    <%   }
-                       } else { %>
-                        <tr><td colspan="6" style="text-align:center;">Aucune réservation non assignée / <span class="malagasy">Tsy misy tsy voatokana</span></td></tr>
-                    <% } %>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        <% if (unassigned != null && !unassigned.isEmpty()) {
+                               for (ReservationDTO r : unassigned) { %>
+                            <tr>
+                                <td><%= r.getId() %></td>
+                                <td><%= r.getClient() %></td>
+                                <td><%= r.getNbPassager() %></td>
+                                <td><%= r.getDateHeureArrivee() %></td>
+                                <td><%= r.getHotel() %></td>
+                                <td><span class="badge badge-unassigned">Non assignée / <span class="malagasy">Tsy voatokana</span></span></td>
+                            </tr>
+                        <%   }
+                           } else { %>
+                            <tr><td colspan="6" style="text-align:center;">Aucune réservation non assignée dans ce créneau / <span class="malagasy">Tsy misy tsy voatokana</span></td></tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
         </div>
         <div style="margin-top:30px;">
             <div class="francais">

@@ -182,18 +182,33 @@ public class PlanningController {
             List<ReservationDTO> unassigned = new ArrayList<>();
             List<ReservationEnrichi> reservationsRestantes = new ArrayList<>(reservationsEnrichies);
             
-            // ========== ASSIGNATION DES VÉHICULES - ALGORITHME DE REMPLISSAGE OPTIMAL ==========
-            // RÈGLE 1 : Réservations triées par nb_passagers DESC (les + gros groupes en premier)
-            // RÈGLE 2 : Pour chaque réservation prioritaire, créer UN véhicule
-            // RÈGLE 3 : MAXIMISER ce véhicule en ajoutant les réservations compatibles
-            //           avec la fenêtre horaire [heure_reference, heure_reference + temps_attente]
-            // RÈGLE 4 : Ne passer au véhicule suivant QUE quand le véhicule actuel est plein
-            //           ou qu'aucune réservation restante ne peut y entrer
-            // NOTE : Le temps d'attente est utilisé comme fenêtre de regroupement horaire
-    
-            while (!reservationsRestantes.isEmpty()) {
-                // Prendre la réservation prioritaire (plus grand nombre de passagers)
-                ReservationEnrichi r = reservationsRestantes.remove(0);
+            // ========== RÈGLES DE GESTION - ASSIGNATION PAR CRÉNEAU (NOUVEAU) ==========
+            // 1. Grouper les réservations par intervalle (ex: 08:00 - 08:30)
+            // 2. L'heure de départ de TOUS les véhicules dans ce créneau sera l'heure MAX des réservations du créneau
+            
+            int pasMinutes = config != null && config.getTempsAttente() > 0 ? config.getTempsAttente() : 30;
+            Map<String, List<ReservationEnrichi>> reservationsParCreneau = new LinkedHashMap<>();
+            List<VehiclePlanningDTO> planningsTousLesCreneaux = new ArrayList<>(); // Pour vérifier la disponibilité globale et le nb de courses
+            
+            for (ReservationEnrichi r : reservationsEnrichies) {
+                java.time.LocalDateTime dateHeure = parserDateHeureReservation(r.reservation.getDateHeureDepart());
+                String cleCreneau = "Inconnu";
+                if (dateHeure != null) {
+                    int totalMinutes = dateHeure.getHour() * 60 + dateHeure.getMinute();
+                    int debutCreneauMinutes = (totalMinutes / pasMinutes) * pasMinutes;
+                    int finCreneauMinutes = debutCreneauMinutes + pasMinutes;
+                    cleCreneau = formaterCreneau(debutCreneauMinutes, finCreneauMinutes);
+                }
+                reservationsParCreneau.computeIfAbsent(cleCreneau, k -> new ArrayList<>()).add(r);
+            }
+            
+            // Pour chaque créneau (ordre chronologique impératif)
+            List<Map.Entry<String, List<ReservationEnrichi>>> creneauxOrdonnes = new ArrayList<>(reservationsParCreneau.entrySet());
+            creneauxOrdonnes.sort((e1, e2) -> Integer.compare(extraireDebutCreneauMinutes(e1.getKey()), extraireDebutCreneauMinutes(e2.getKey())));
+
+            for (Map.Entry<String, List<ReservationEnrichi>> entry : creneauxOrdonnes) {
+                String creneau = entry.getKey();
+                List<ReservationEnrichi> resDansCreneau = entry.getValue();
                 
                 // Créer un nouveau véhicule pour cette réservation
                 Vehicule vehicule = trouverVehiculeOptimal(vehicules, plannings, r.reservation.getNbPassager());
@@ -298,6 +313,10 @@ public class PlanningController {
         // Itinéraire: aéroport -> hotel_plus_proche -> hotel2 -> ... -> hotel_plus_loin -> retour aéroport
         Lieu lieuPrecedent = aeroport;
         double tempsTotal = 0; // en heures
+        double distanceTotaleKm = 0.0;
+        StringBuilder trajet = new StringBuilder();
+        String codeAeroport = aeroport.getCode() != null ? aeroport.getCode() : "IVATO";
+        trajet.append(codeAeroport);
         
         for (ClientInfo client : clientsTries) {
             // Trouver le lieu de l'hôtel
@@ -310,8 +329,11 @@ public class PlanningController {
             if (lieuHotel != null) {
                 // Ajouter temps de trajet vers cet hôtel
                 double distance = Distance.getDistanceBetween(lieuPrecedent.getId(), lieuHotel.getId(), distances);
-                double tempsTrajet = distance / config.getVitesseMoyenne(); // en heures
+                double vitesse = (config != null && config.getVitesseMoyenne() > 0) ? config.getVitesseMoyenne() : 40.0;
+                double tempsTrajet = distance / vitesse; // en heures
                 tempsTotal += tempsTrajet;
+                distanceTotaleKm += distance;
+                trajet.append(" -> ").append(lieuHotel.getCode() != null ? lieuHotel.getCode() : lieuHotel.getLibelle());
                 
                 // NOTE : Le temps d'attente n'est PLUS pris en compte dans les calculs
                 
@@ -321,8 +343,12 @@ public class PlanningController {
         
         // Ajouter le retour à l'aéroport
         double distanceRetour = Distance.getDistanceBetween(lieuPrecedent.getId(), aeroport.getId(), distances);
-        double tempsRetour = distanceRetour / config.getVitesseMoyenne();
+        double vitesse = (config != null && config.getVitesseMoyenne() > 0) ? config.getVitesseMoyenne() : 40.0;
+        double tempsRetour = distanceRetour / vitesse;
         tempsTotal += tempsRetour;
+        // Affichage: distance/trajet aller uniquement (sans retour)
+        planning.setDistanceParcourueKm(distanceTotaleKm);
+        planning.setTrajetResume(trajet.toString());
         
         // L'heure de départ du véhicule = heure d'arrivée du DERNIER client du groupe à l'aéroport.
         try {
@@ -442,6 +468,90 @@ public class PlanningController {
             return java.time.LocalDateTime.parse(dateHeure.replace(" ", "T"));
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    private Lieu trouverLieuPourReservation(Reservation reservation, List<Lieu> lieux) {
+        if (reservation == null || lieux == null || lieux.isEmpty()) {
+            return null;
+        }
+
+        String nomHotel = reservation.getHotel();
+        if (nomHotel == null || nomHotel.trim().isEmpty()) {
+            // Fallback: anciennes données éventuelles où id_hotel contient un id de lieu.
+            return lieux.stream()
+                .filter(l -> l.getId() == reservation.getIdHotel())
+                .findFirst()
+                .orElse(null);
+        }
+
+        Lieu lieuParNom = lieux.stream()
+            .filter(l -> l.getLibelle().toLowerCase().contains(nomHotel.toLowerCase())
+                      || nomHotel.toLowerCase().contains(l.getLibelle().toLowerCase()))
+            .findFirst()
+            .orElse(null);
+
+        if (lieuParNom != null) {
+            return lieuParNom;
+        }
+
+        // Fallback si aucun match sur le nom.
+        return lieux.stream()
+            .filter(l -> l.getId() == reservation.getIdHotel())
+            .findFirst()
+            .orElse(null);
+    }
+
+    private Map<String, List<Reservation>> grouperReservationsParCreneau(List<Reservation> reservations,
+                                                                          int intervalleMinutes) {
+        Map<String, List<Reservation>> groupes = new LinkedHashMap<>();
+        int pasMinutes = intervalleMinutes > 0 ? intervalleMinutes : 30;
+
+        if (reservations == null || reservations.isEmpty()) {
+            return groupes;
+        }
+
+        for (Reservation reservation : reservations) {
+            java.time.LocalDateTime dateHeure = parserDateHeureReservation(reservation.getDateHeureDepart());
+            String cleCreneau;
+
+            if (dateHeure == null) {
+                cleCreneau = "Horaire invalide";
+            } else {
+                int totalMinutes = dateHeure.getHour() * 60 + dateHeure.getMinute();
+                int debutCreneauMinutes = (totalMinutes / pasMinutes) * pasMinutes;
+                int finCreneauMinutes = debutCreneauMinutes + pasMinutes;
+                cleCreneau = formaterCreneau(debutCreneauMinutes, finCreneauMinutes);
+            }
+
+            groupes.computeIfAbsent(cleCreneau, k -> new ArrayList<>()).add(reservation);
+        }
+
+        return groupes;
+    }
+
+    private String formaterCreneau(int debutMinutes, int finMinutes) {
+        int debutHeure = (debutMinutes / 60) % 24;
+        int debutMinute = debutMinutes % 60;
+        int finHeure = (finMinutes / 60) % 24;
+        int finMinute = finMinutes % 60;
+
+        return String.format("%02d:%02d - %02d:%02d", debutHeure, debutMinute, finHeure, finMinute);
+    }
+
+    private int extraireDebutCreneauMinutes(String creneau) {
+        if (creneau == null || !creneau.contains("-")) {
+            return Integer.MAX_VALUE;
+        }
+
+        try {
+            String debut = creneau.split("-")[0].trim();
+            String[] hm = debut.split(":");
+            int h = Integer.parseInt(hm[0].trim());
+            int m = Integer.parseInt(hm[1].trim());
+            return (h * 60) + m;
+        } catch (Exception e) {
+            return Integer.MAX_VALUE;
         }
     }
     
