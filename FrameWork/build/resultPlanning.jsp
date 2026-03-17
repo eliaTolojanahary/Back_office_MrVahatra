@@ -118,6 +118,7 @@
                             <th>Clients / <span class="malagasy">Mpandeha</span></th>
                             <th>Heure départ / <span class="malagasy">Ora fiaingana</span></th>
                             <th>Heure retour / <span class="malagasy">Ora fiverenana</span></th>
+                            <th>Trajet aller / Distance aller</th>
                             <th>Places occupées / <span class="malagasy">Toerana feno</span></th>
                         </tr>
                     </thead>
@@ -149,11 +150,15 @@
                                 </td>
                                 <td><%= planning.getDateHeureDepart() %></td>
                                 <td><%= planning.getDateHeureRetour() %></td>
+                                <td>
+                                    <div><%= planning.getTrajetResume() != null ? planning.getTrajetResume() : "-" %></div>
+                                    <div class="client-details"><%= String.format("%.2f", planning.getDistanceParcourueKm()) %> km</div>
+                                </td>
                                 <td><%= planning.getPlacesOccupees() %> / <%= planning.getPlacesTotales() %></td>
                             </tr>
                         <%   }
                            } else { %>
-                            <tr><td colspan="6" style="text-align:center;">Aucune réservation assignée dans ce créneau / <span class="malagasy">Tsy misy voatokana</span></td></tr>
+                            <tr><td colspan="7" style="text-align:center;">Aucune réservation assignée dans ce créneau / <span class="malagasy">Tsy misy voatokana</span></td></tr>
                         <% } %>
                     </tbody>
                 </table>

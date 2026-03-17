@@ -223,8 +223,11 @@ public class PlanningController {
                 reservationsParCreneau.computeIfAbsent(cleCreneau, k -> new ArrayList<>()).add(r);
             }
             
-            // Pour chaque créneau
-            for (Map.Entry<String, List<ReservationEnrichi>> entry : reservationsParCreneau.entrySet()) {
+            // Pour chaque créneau (ordre chronologique impératif)
+            List<Map.Entry<String, List<ReservationEnrichi>>> creneauxOrdonnes = new ArrayList<>(reservationsParCreneau.entrySet());
+            creneauxOrdonnes.sort((e1, e2) -> Integer.compare(extraireDebutCreneauMinutes(e1.getKey()), extraireDebutCreneauMinutes(e2.getKey())));
+
+            for (Map.Entry<String, List<ReservationEnrichi>> entry : creneauxOrdonnes) {
                 String creneau = entry.getKey();
                 List<ReservationEnrichi> resDansCreneau = entry.getValue();
                 
@@ -374,6 +377,10 @@ public class PlanningController {
         // Itinéraire: aéroport -> hotel_plus_proche -> hotel2 -> ... -> hotel_plus_loin -> retour aéroport
         Lieu lieuPrecedent = aeroport;
         double tempsTotal = 0; // en heures
+        double distanceTotaleKm = 0.0;
+        StringBuilder trajet = new StringBuilder();
+        String codeAeroport = aeroport.getCode() != null ? aeroport.getCode() : "IVATO";
+        trajet.append(codeAeroport);
         
         for (ClientInfo client : clientsTries) {
             // Trouver le lieu de l'hôtel
@@ -386,8 +393,11 @@ public class PlanningController {
             if (lieuHotel != null) {
                 // Ajouter temps de trajet vers cet hôtel
                 double distance = Distance.getDistanceBetween(lieuPrecedent.getId(), lieuHotel.getId(), distances);
-                double tempsTrajet = distance / config.getVitesseMoyenne(); // en heures
+                double vitesse = (config != null && config.getVitesseMoyenne() > 0) ? config.getVitesseMoyenne() : 40.0;
+                double tempsTrajet = distance / vitesse; // en heures
                 tempsTotal += tempsTrajet;
+                distanceTotaleKm += distance;
+                trajet.append(" -> ").append(lieuHotel.getCode() != null ? lieuHotel.getCode() : lieuHotel.getLibelle());
                 
                 // NOTE : Le temps d'attente n'est PLUS pris en compte dans les calculs
                 
@@ -397,8 +407,12 @@ public class PlanningController {
         
         // Ajouter le retour à l'aéroport
         double distanceRetour = Distance.getDistanceBetween(lieuPrecedent.getId(), aeroport.getId(), distances);
-        double tempsRetour = distanceRetour / config.getVitesseMoyenne();
+        double vitesse = (config != null && config.getVitesseMoyenne() > 0) ? config.getVitesseMoyenne() : 40.0;
+        double tempsRetour = distanceRetour / vitesse;
         tempsTotal += tempsRetour;
+        // Affichage: distance/trajet aller uniquement (sans retour)
+        planning.setDistanceParcourueKm(distanceTotaleKm);
+        planning.setTrajetResume(trajet.toString());
         
         // L'heure de départ du véhicule est forcée par l'heure max du créneau (si fournie)
         // Sinon, on garde l'ancienne logique
@@ -523,22 +537,28 @@ public class PlanningController {
             return null;
         }
 
-        Lieu lieuParId = lieux.stream()
-            .filter(l -> l.getId() == reservation.getIdHotel())
-            .findFirst()
-            .orElse(null);
-        if (lieuParId != null) {
-            return lieuParId;
-        }
-
         String nomHotel = reservation.getHotel();
         if (nomHotel == null || nomHotel.trim().isEmpty()) {
-            return null;
+            // Fallback: anciennes données éventuelles où id_hotel contient un id de lieu.
+            return lieux.stream()
+                .filter(l -> l.getId() == reservation.getIdHotel())
+                .findFirst()
+                .orElse(null);
         }
 
-        return lieux.stream()
+        Lieu lieuParNom = lieux.stream()
             .filter(l -> l.getLibelle().toLowerCase().contains(nomHotel.toLowerCase())
                       || nomHotel.toLowerCase().contains(l.getLibelle().toLowerCase()))
+            .findFirst()
+            .orElse(null);
+
+        if (lieuParNom != null) {
+            return lieuParNom;
+        }
+
+        // Fallback si aucun match sur le nom.
+        return lieux.stream()
+            .filter(l -> l.getId() == reservation.getIdHotel())
             .findFirst()
             .orElse(null);
     }
@@ -578,6 +598,22 @@ public class PlanningController {
         int finMinute = finMinutes % 60;
 
         return String.format("%02d:%02d - %02d:%02d", debutHeure, debutMinute, finHeure, finMinute);
+    }
+
+    private int extraireDebutCreneauMinutes(String creneau) {
+        if (creneau == null || !creneau.contains("-")) {
+            return Integer.MAX_VALUE;
+        }
+
+        try {
+            String debut = creneau.split("-")[0].trim();
+            String[] hm = debut.split(":");
+            int h = Integer.parseInt(hm[0].trim());
+            int m = Integer.parseInt(hm[1].trim());
+            return (h * 60) + m;
+        } catch (Exception e) {
+            return Integer.MAX_VALUE;
+        }
     }
     
     /**

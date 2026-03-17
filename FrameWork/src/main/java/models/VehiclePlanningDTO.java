@@ -13,6 +13,8 @@ public class VehiclePlanningDTO {
     private LocalDateTime heureRetourParsed; 
     private int placesOccupees;
     private int placesTotales;
+    private double distanceParcourueKm;
+    private String trajetResume;
 
     public VehiclePlanningDTO() {
         this.clients = new ArrayList<>();
@@ -114,6 +116,22 @@ public class VehiclePlanningDTO {
 
     public void setPlacesTotales(int placesTotales) {
         this.placesTotales = placesTotales;
+    }
+
+    public double getDistanceParcourueKm() {
+        return distanceParcourueKm;
+    }
+
+    public void setDistanceParcourueKm(double distanceParcourueKm) {
+        this.distanceParcourueKm = distanceParcourueKm;
+    }
+
+    public String getTrajetResume() {
+        return trajetResume;
+    }
+
+    public void setTrajetResume(String trajetResume) {
+        this.trajetResume = trajetResume;
     }
 
 }
