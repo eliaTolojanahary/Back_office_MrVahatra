@@ -7,7 +7,7 @@ import annotation.PostMapping;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import models.Hotel;
+import models.Lieu;
 import models.Reservation;
 import modelview.ModelView;
 import util.DatabaseConnection;
@@ -21,22 +21,22 @@ public class ReservationController {
     public ModelView getFormReservation() {
         ModelView mv = new ModelView("/formReservation.jsp");
         try (Connection conn = DatabaseConnection.getConnection()) {
-            List<Hotel> hotels = new ArrayList<>();
-            String sql = "SELECT id, nom, adresse FROM hotel ORDER BY nom";
+            List<Lieu> lieux = new ArrayList<>();
+            String sql = "SELECT id, code, libelle FROM lieu WHERE code <> 'IVATO' ORDER BY libelle";
             try (PreparedStatement stmt = conn.prepareStatement(sql);
                  ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    Hotel h = new Hotel();
-                    h.setId(rs.getInt("id"));
-                    h.setNom(rs.getString("nom"));
-                    h.setAdresse(rs.getString("adresse"));
-                    hotels.add(h);
+                    Lieu l = new Lieu();
+                    l.setId(rs.getInt("id"));
+                    l.setCode(rs.getString("code"));
+                    l.setLibelle(rs.getString("libelle"));
+                    lieux.add(l);
                 }
             }
-            mv.addData("hotels", hotels);
+            mv.addData("lieux", lieux);
         } catch (SQLException e) {
             e.printStackTrace();
-            mv.addData("error", "Erreur lors du chargement des hôtels: " + e.getMessage());
+            mv.addData("error", "Erreur lors du chargement des lieux: " + e.getMessage());
         }
         return mv;
     }
@@ -88,17 +88,18 @@ public class ReservationController {
             "FROM reservation r JOIN hotel h ON r.id_hotel = h.id " +
             "ORDER BY r.date_heure_depart";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            while (rs.next()) {
-                Reservation r = new Reservation();
-                r.setId(rs.getInt("id"));
-                r.setClient(rs.getString("client"));
-                r.setIdHotel(rs.getInt("id_hotel"));
-                r.setHotel(rs.getString("hotel"));
-                r.setNbPassager(rs.getInt("nb_passager"));
-                r.setDateHeureDepart(String.valueOf(rs.getTimestamp("date_heure_depart")));
-                reservations.add(r);
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Reservation r = new Reservation();
+                    r.setId(rs.getInt("id"));
+                    r.setClient(rs.getString("client"));
+                    r.setIdHotel(rs.getInt("id_hotel"));
+                    r.setHotel(rs.getString("hotel"));
+                    r.setNbPassager(rs.getInt("nb_passager"));
+                    r.setDateHeureDepart(String.valueOf(rs.getTimestamp("date_heure_depart")));
+                    reservations.add(r);
+                }
             }
         } catch (SQLException e) {
             System.err.println("==== ERREUR SQL dans getAllReservations ====");

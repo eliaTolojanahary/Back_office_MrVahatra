@@ -1,6 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.List" %>
-<%@ page import="models.Hotel" %>
+<%@ page import="models.Lieu" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -68,7 +68,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Formulaire de Réservation d'Hôtel</h1>
+        <h1>Formulaire de Réservation</h1>
         
         <% if (request.getAttribute("error") != null) { %>
             <div class="error">
@@ -95,15 +95,15 @@
             </div>
             
             <div class="form-group">
-                <label for="idHotel">Hôtel:</label>
+                <label for="idHotel">Destination:</label>
                 <select id="idHotel" name="idHotel" required>
-                    <option value="">-- Choisir un hôtel --</option>
+                    <option value="">-- Choisir un lieu --</option>
                     <% 
-                        List<Hotel> hotels = (List<Hotel>) request.getAttribute("hotels");
-                        if (hotels != null) {
-                            for (Hotel hotel : hotels) {
+                        List<Lieu> lieux = (List<Lieu>) request.getAttribute("lieux");
+                        if (lieux != null) {
+                            for (Lieu lieu : lieux) {
                     %>
-                        <option value="<%= hotel.getId() %>"><%= hotel.getNom() %></option>
+                        <option value="<%= lieu.getId() %>"><%= lieu.getLibelle() %></option>
                     <% 
                             }
                         }
