@@ -238,9 +238,93 @@ public class PlanningService {
 
         result.put("planningsParCreneauMap", planningsParCreneauMap);
         result.put("unassignedParCreneauMap", unassignedParCreneauMap);
+        try {
+            sauvegarderAssignements(datePlanningNormalisee, planningsParCreneauMap);
+            result.put("assignementSaved", true);
+        } catch (SQLException e) {
+            throw new SQLException("Echec sauvegarde assignement: " + e.getMessage(), e);
+        }
         result.put("config", config);
         
         return result;
+    }
+
+    private void sauvegarderAssignements(String datePlanningNormalisee,
+                                          Map<String, List<VehiclePlanningDTO>> planningsParCreneauMap) throws SQLException {
+        if (datePlanningNormalisee == null || datePlanningNormalisee.trim().isEmpty() || planningsParCreneauMap == null) {
+            return;
+        }
+
+        String sqlCreateTable = "CREATE TABLE IF NOT EXISTS assignement ("
+            + "id SERIAL PRIMARY KEY, "
+            + "id_reservation INTEGER NOT NULL REFERENCES reservation(id) ON DELETE CASCADE, "
+            + "id_vehicule INTEGER NOT NULL REFERENCES vehicule(id) ON DELETE CASCADE, "
+            + "nb_passager_assigne INTEGER NOT NULL CHECK (nb_passager_assigne > 0), "
+            + "date_planning DATE NOT NULL, "
+            + "creneau VARCHAR(30), "
+            + "heure_depart VARCHAR(5), "
+            + "heure_retour VARCHAR(5), "
+            + "date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
+            + "CONSTRAINT uq_assignement UNIQUE (date_planning, id_reservation, id_vehicule, creneau)"
+            + ")";
+
+        String sqlDelete = "DELETE FROM assignement WHERE date_planning = ?";
+        String sqlInsert = "INSERT INTO assignement (id_reservation, id_vehicule, nb_passager_assigne, date_planning, creneau, heure_depart, heure_retour) "
+            + "VALUES (?, ?, ?, ?, ?, ?, ?)";
+
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            boolean previousAutoCommit = conn.getAutoCommit();
+            conn.setAutoCommit(false);
+            try {
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.execute(sqlCreateTable);
+                }
+
+                try (PreparedStatement deleteStmt = conn.prepareStatement(sqlDelete)) {
+                    deleteStmt.setDate(1, java.sql.Date.valueOf(datePlanningNormalisee));
+                    deleteStmt.executeUpdate();
+                }
+
+                try (PreparedStatement insertStmt = conn.prepareStatement(sqlInsert)) {
+                    for (Map.Entry<String, List<VehiclePlanningDTO>> entry : planningsParCreneauMap.entrySet()) {
+                        String creneau = entry.getKey();
+                        List<VehiclePlanningDTO> plannings = entry.getValue();
+                        if (plannings == null) {
+                            continue;
+                        }
+
+                        for (VehiclePlanningDTO planning : plannings) {
+                            if (planning == null || planning.getClients() == null) {
+                                continue;
+                            }
+
+                            for (ClientInfo client : planning.getClients()) {
+                                if (client == null || client.getIdReservation() <= 0 || client.getNbPassager() <= 0) {
+                                    continue;
+                                }
+
+                                insertStmt.setInt(1, client.getIdReservation());
+                                insertStmt.setInt(2, planning.getIdVehicule());
+                                insertStmt.setInt(3, client.getNbPassager());
+                                insertStmt.setDate(4, java.sql.Date.valueOf(datePlanningNormalisee));
+                                insertStmt.setString(5, creneau);
+                                insertStmt.setString(6, planning.getDateHeureDepart());
+                                insertStmt.setString(7, planning.getDateHeureRetour());
+                                insertStmt.addBatch();
+                            }
+                        }
+                    }
+                    insertStmt.executeBatch();
+                }
+
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(previousAutoCommit);
+            }
+        }
     }
 
     public Map<String, Object> getVehiculePlanningInfoData(int idVehicule, String datePlanning) throws Exception {
