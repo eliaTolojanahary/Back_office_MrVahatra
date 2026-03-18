@@ -16,6 +16,16 @@
 -- Sinon, créer ce lieu avant les tests.
 
 -- =========================================================================================
+-- MISE A JOUR DU SCHEMA
+-- =========================================================================================
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'vehicule' AND column_name = 'heure_disponibilite') THEN
+        ALTER TABLE vehicule ADD COLUMN heure_disponibilite TIME;
+    END IF;
+END $$;
+
+-- =========================================================================================
 -- CONFIGURATION ACTIVE DU PLANNING (TEMPS D'ATTENTE = 30 MIN)
 -- =========================================================================================
 UPDATE planning_config SET is_active = false WHERE is_active = true;
@@ -38,14 +48,14 @@ LIMIT 1;
 
 DELETE FROM vehicule WHERE reference LIKE 'S6-VH-%';
 
-INSERT INTO vehicule (reference, place, type_carburant) VALUES
-('S6-VH-001', 2, 'diesel'),
-('S6-VH-002', 3, 'diesel'),
-('S6-VH-003', 4, 'diesel'),
-('S6-VH-004', 4, 'essence'),
-('S6-VH-005', 5, 'diesel'),
-('S6-VH-006', 5, 'essence'),
-('S6-VH-007', 7, 'diesel');
+INSERT INTO vehicule (reference, place, type_carburant, heure_disponibilite) VALUES
+('S6-VH-001', 2, 'diesel', '08:00:00'),
+('S6-VH-002', 3, 'diesel', '08:00:00'),
+('S6-VH-003', 4, 'diesel', '08:00:00'),
+('S6-VH-004', 4, 'essence', '08:00:00'),
+('S6-VH-005', 5, 'diesel', '08:00:00'),
+('S6-VH-006', 5, 'essence', '08:00:00'),
+('S6-VH-007', 7, 'diesel', '08:00:00');
 
 SELECT * FROM vehicule WHERE reference LIKE 'S6-VH-%' ORDER BY reference;
 

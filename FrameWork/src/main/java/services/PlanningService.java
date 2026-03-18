@@ -173,7 +173,7 @@ public class PlanningService {
                     remplirPlacesRestantesOptimal(nouveauPlanning, resDansCreneau, config, aeroport, distances, lieux, r, null);
                 } else {
                     java.util.List<Vehicule> vehiculesDisponibles = vehicules.stream()
-                        .filter(v -> estVehiculeDisponiblePourReservation(v.getId(), planningsTousLesCreneaux, heureReservation))
+                        .filter(v -> estVehiculeDisponiblePourReservation(v, planningsTousLesCreneaux, heureReservation))
                         .collect(java.util.stream.Collectors.toList());
 
                     DivisionReservationResult division = diviserReservation(r, vehiculesDisponibles, planningsTousLesCreneaux);
@@ -197,6 +197,8 @@ public class PlanningService {
                         planningsCurrentCreneau.add(nouveauPlanning);
                         planningsTousLesCreneaux.add(nouveauPlanning);
                         auMoinsUneAssignation = true;
+                        
+                        remplirPlacesRestantesOptimal(nouveauPlanning, resDansCreneau, config, aeroport, distances, lieux, r, null);
                     }
 
                     int passagersRestants = division.getPassagersRestants();
@@ -428,7 +430,7 @@ public class PlanningService {
                     remplirPlacesRestantesOptimal(nouveauPlanning, resDansCreneau, config, aeroport, distances, lieux, r, null);
                 } else {
                     java.util.List<Vehicule> vehiculesDisponibles = vehicules.stream()
-                        .filter(vd -> estVehiculeDisponiblePourReservation(vd.getId(), planningsDeReference, heureReservation))
+                        .filter(vd -> estVehiculeDisponiblePourReservation(vd, planningsDeReference, heureReservation))
                         .collect(java.util.stream.Collectors.toList());
                     DivisionReservationResult division = diviserReservation(r, vehiculesDisponibles, planningsDeReference);
 
@@ -450,6 +452,8 @@ public class PlanningService {
                         ajouterClientAuVehicule(nouveauPlanningDivise, reservationDivisee, config, aeroport, distances, lieux, null);
                         planningsCurrentCreneau.add(nouveauPlanningDivise);
                         auMoinsUneAssignation = true;
+
+                        remplirPlacesRestantesOptimal(nouveauPlanningDivise, resDansCreneau, config, aeroport, distances, lieux, r, null);
                     }
 
                     int passagersRestants = division.getPassagersRestants();
@@ -713,6 +717,48 @@ public class PlanningService {
                 ReservationEnrichi meilleurCandidat = reservationsRestantes.remove(indexMeilleurCandidat);
                 ajouterClientAuVehicule(planning, meilleurCandidat, config, aeroport, distances, lieux, heureDepartForcee);
                 peutAjouterDautres = true; 
+            } else {
+                int placesDisponibles = planning.getPlacesRestantes();
+                int minDifference = Integer.MAX_VALUE;
+                int indexCandidatADiviser = -1;
+                
+                for (int i = 0; i < reservationsRestantes.size(); i++) {
+                    int nbPassagers = reservationsRestantes.get(i).reservation.getNbPassager();
+                    int diff = Math.abs(nbPassagers - placesDisponibles);
+                    
+                    if (diff < minDifference) {
+                        minDifference = diff;
+                        indexCandidatADiviser = i;
+                    }
+                }
+                
+                if (indexCandidatADiviser != -1) {
+                    ReservationEnrichi candidatADiviser = reservationsRestantes.remove(indexCandidatADiviser);
+                    
+                    Reservation reservationPourVehicule = copierReservationAvecNbPassager(candidatADiviser.reservation, placesDisponibles);
+                    ReservationEnrichi enrichiePartielle = new ReservationEnrichi(
+                        reservationPourVehicule,
+                        candidatADiviser.lieuHotel,
+                        candidatADiviser.getDistanceFromAeroport()
+                    );
+                    
+                    ajouterClientAuVehicule(planning, enrichiePartielle, config, aeroport, distances, lieux, heureDepartForcee);
+                    
+                    int passagersRestants = candidatADiviser.getNbPassager() - placesDisponibles;
+                    Reservation reliquat = copierReservationAvecNbPassager(candidatADiviser.reservation, passagersRestants);
+                    ReservationEnrichi enrichieReliquat = new ReservationEnrichi(
+                        reliquat,
+                        candidatADiviser.lieuHotel,
+                        candidatADiviser.getDistanceFromAeroport()
+                    );
+                    reservationsRestantes.add(enrichieReliquat);
+                    
+                    reservationsRestantes.sort((r1, r2) -> {
+                        int cmpPassagers = Integer.compare(r2.reservation.getNbPassager(), r1.reservation.getNbPassager());
+                        if (cmpPassagers != 0) return cmpPassagers;
+                        return Double.compare(r1.getDistanceFromAeroport(), r2.getDistanceFromAeroport());
+                    });
+                }
             }
         }
     }
@@ -845,7 +891,7 @@ public class PlanningService {
         int nbPassagers = reservationCandidate != null ? reservationCandidate.getNbPassager() : 0;
 
         List<Vehicule> vehiculesDisponibles = tousVehicules.stream()
-            .filter(v -> estVehiculeDisponiblePourReservation(v.getId(), planningsExistants, heureDepartPrevue))
+            .filter(v -> estVehiculeDisponiblePourReservation(v, planningsExistants, heureDepartPrevue))
             .collect(java.util.stream.Collectors.toList());
 
         return trouverVehiculeOptimal(vehiculesDisponibles, nbPassagers, planningsExistants);
@@ -905,22 +951,28 @@ public class PlanningService {
         return new ReservationEnrichi(reliquat, reservation.lieuHotel, reservation.getDistanceFromAeroport());
     }
 
-    public boolean estVehiculeDisponiblePourReservation(int idVehicule,
+    public boolean estVehiculeDisponiblePourReservation(Vehicule vehicule,
                                                          List<VehiclePlanningDTO> planningsExistants,
                                                          java.time.LocalDateTime dateHeureReservation) {
+        if (dateHeureReservation == null) {
+            return true;
+        }
+        
+        if (vehicule.getHeureDisponibilite() != null) {
+            if (dateHeureReservation.toLocalTime().isBefore(vehicule.getHeureDisponibilite())) {
+                return false;
+            }
+        }
+
         if (planningsExistants == null || planningsExistants.isEmpty()) {
             return true;
         }
 
         List<VehiclePlanningDTO> planningsVehicule = planningsExistants.stream()
-            .filter(p -> p.getIdVehicule() == idVehicule)
+            .filter(p -> p.getIdVehicule() == vehicule.getId())
             .collect(java.util.stream.Collectors.toList());
 
         if (planningsVehicule.isEmpty()) {
-            return true;
-        }
-
-        if (dateHeureReservation == null) {
             return true;
         }
 

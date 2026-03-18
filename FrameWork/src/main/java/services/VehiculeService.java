@@ -12,11 +12,16 @@ public class VehiculeService {
     public boolean saveVehicule(Vehicule vehicule) throws SQLException {
         boolean success = false;
         try (Connection conn = DatabaseConnection.getConnection()) {
-            String sql = "INSERT INTO vehicule (reference, place, type_carburant) VALUES (?, ?, ?)";
+            String sql = "INSERT INTO vehicule (reference, place, type_carburant, heure_disponibilite) VALUES (?, ?, ?, ?)";
             try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 stmt.setString(1, vehicule.getReference());
                 stmt.setInt(2, vehicule.getPlace());
                 stmt.setString(3, vehicule.getTypeCarburant());
+                if (vehicule.getHeureDisponibilite() != null) {
+                    stmt.setTime(4, java.sql.Time.valueOf(vehicule.getHeureDisponibilite()));
+                } else {
+                    stmt.setNull(4, java.sql.Types.TIME);
+                }
                 
                 int rowsAffected = stmt.executeUpdate();
                 if (rowsAffected > 0) {
@@ -35,7 +40,7 @@ public class VehiculeService {
     public List<Vehicule> getAllVehicules() throws SQLException {
         List<Vehicule> vehicules = new ArrayList<>();
         try (Connection conn = DatabaseConnection.getConnection()) {
-            String sql = "SELECT id, reference, place, type_carburant FROM vehicule ORDER BY id";
+            String sql = "SELECT id, reference, place, type_carburant, heure_disponibilite FROM vehicule ORDER BY id";
             try (PreparedStatement stmt = conn.prepareStatement(sql);
                  ResultSet rs = stmt.executeQuery()) {
                 
@@ -45,6 +50,8 @@ public class VehiculeService {
                     v.setReference(rs.getString("reference"));
                     v.setPlace(rs.getInt("place"));
                     v.setTypeCarburant(rs.getString("type_carburant"));
+                    Time heureDisp = rs.getTime("heure_disponibilite");
+                    if (heureDisp != null) v.setHeureDisponibilite(heureDisp.toLocalTime());
                     vehicules.add(v);
                 }
             }
@@ -55,7 +62,7 @@ public class VehiculeService {
     public Vehicule getVehiculeById(int id) throws SQLException {
         Vehicule vehicule = null;
         try (Connection conn = DatabaseConnection.getConnection()) {
-            String sql = "SELECT id, reference, place, type_carburant FROM vehicule WHERE id = ?";
+            String sql = "SELECT id, reference, place, type_carburant, heure_disponibilite FROM vehicule WHERE id = ?";
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                 stmt.setInt(1, id);
                 
@@ -66,6 +73,8 @@ public class VehiculeService {
                         vehicule.setReference(rs.getString("reference"));
                         vehicule.setPlace(rs.getInt("place"));
                         vehicule.setTypeCarburant(rs.getString("type_carburant"));
+                        Time heureDisp = rs.getTime("heure_disponibilite");
+                        if (heureDisp != null) vehicule.setHeureDisponibilite(heureDisp.toLocalTime());
                     }
                 }
             }
@@ -76,12 +85,17 @@ public class VehiculeService {
     public boolean updateVehicule(Vehicule vehicule) throws SQLException {
         boolean success = false;
         try (Connection conn = DatabaseConnection.getConnection()) {
-            String sql = "UPDATE vehicule SET reference = ?, place = ?, type_carburant = ? WHERE id = ?";
+            String sql = "UPDATE vehicule SET reference = ?, place = ?, type_carburant = ?, heure_disponibilite = ? WHERE id = ?";
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                 stmt.setString(1, vehicule.getReference());
                 stmt.setInt(2, vehicule.getPlace());
                 stmt.setString(3, vehicule.getTypeCarburant());
-                stmt.setInt(4, vehicule.getId());
+                if (vehicule.getHeureDisponibilite() != null) {
+                    stmt.setTime(4, java.sql.Time.valueOf(vehicule.getHeureDisponibilite()));
+                } else {
+                    stmt.setNull(4, java.sql.Types.TIME);
+                }
+                stmt.setInt(5, vehicule.getId());
                 
                 int rowsAffected = stmt.executeUpdate();
                 if (rowsAffected > 0) {
