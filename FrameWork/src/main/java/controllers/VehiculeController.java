@@ -7,14 +7,15 @@ import annotation.ClasseAnnotation;
 import annotation.RequestParam;
 import modelview.ModelView;
 import models.Vehicule;
-import util.DatabaseConnection;
-import java.sql.*;
-import java.util.ArrayList;
+import services.VehiculeService;
+import java.sql.SQLException;
 import java.util.List;
 
 @ClasseAnnotation("/vehicule")
 public class VehiculeController {
    
+    private VehiculeService vehiculeService = new VehiculeService();
+
     @MethodeAnnotation("/vehicule/form")
     @GetMapping
     public ModelView getFormVehicule() {
@@ -28,23 +29,8 @@ public class VehiculeController {
         ModelView mv = new ModelView("/resultVehicule.jsp");
         boolean success = false;
         
-        try (Connection conn = DatabaseConnection.getConnection()) {
-            String sql = "INSERT INTO vehicule (reference, place, type_carburant) VALUES (?, ?, ?)";
-            try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                stmt.setString(1, vehicule.getReference());
-                stmt.setInt(2, vehicule.getPlace());
-                stmt.setString(3, vehicule.getTypeCarburant());
-                
-                int rowsAffected = stmt.executeUpdate();
-                if (rowsAffected > 0) {
-                    success = true;
-                    try (ResultSet rs = stmt.getGeneratedKeys()) {
-                        if (rs.next()) {
-                            vehicule.setId(rs.getInt(1));
-                        }
-                    }
-                }
-            }
+        try {
+            success = vehiculeService.saveVehicule(vehicule);
         } catch (SQLException e) {
             e.printStackTrace();
             mv.addData("error", "Erreur lors de l'enregistrement: " + e.getMessage());
@@ -60,28 +46,15 @@ public class VehiculeController {
     @GetMapping
     public ModelView listVehicules() {
         ModelView mv = new ModelView("/listVehicule.jsp");
-        List<Vehicule> vehicules = new ArrayList<>();
         
-        try (Connection conn = DatabaseConnection.getConnection()) {
-            String sql = "SELECT id, reference, place, type_carburant FROM vehicule ORDER BY id";
-            try (PreparedStatement stmt = conn.prepareStatement(sql);
-                 ResultSet rs = stmt.executeQuery()) {
-                
-                while (rs.next()) {
-                    Vehicule v = new Vehicule();
-                    v.setId(rs.getInt("id"));
-                    v.setReference(rs.getString("reference"));
-                    v.setPlace(rs.getInt("place"));
-                    v.setTypeCarburant(rs.getString("type_carburant"));
-                    vehicules.add(v);
-                }
-            }
+        try {
+            List<Vehicule> vehicules = vehiculeService.getAllVehicules();
+            mv.addData("vehicules", vehicules);
         } catch (SQLException e) {
             e.printStackTrace();
             mv.addData("error", "Erreur lors de la récupération des véhicules: " + e.getMessage());
         }
         
-        mv.addData("vehicules", vehicules);
         return mv;
     }
 
@@ -92,7 +65,7 @@ public class VehiculeController {
         
         try {
             int id = Integer.parseInt(idStr);
-            Vehicule vehicule = getVehiculeById(id);
+            Vehicule vehicule = vehiculeService.getVehiculeById(id);
             
             if (vehicule != null) {
                 mv.addData("vehicule", vehicule);
@@ -101,6 +74,9 @@ public class VehiculeController {
             }
         } catch (NumberFormatException e) {
             mv.addData("error", "ID invalide");
+        } catch (SQLException e) {
+            e.printStackTrace();
+            mv.addData("error", "Erreur lors de la récupération du véhicule: " + e.getMessage());
         }
         
         return mv;
@@ -117,20 +93,7 @@ public class VehiculeController {
             int id = Integer.parseInt(idStr);
             vehicule.setId(id);
 
-            try (Connection conn = DatabaseConnection.getConnection()) {
-                String sql = "UPDATE vehicule SET reference = ?, place = ?, type_carburant = ? WHERE id = ?";
-                try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                    stmt.setString(1, vehicule.getReference());
-                    stmt.setInt(2, vehicule.getPlace());
-                    stmt.setString(3, vehicule.getTypeCarburant());
-                    stmt.setInt(4, vehicule.getId());
-                    
-                    int rowsAffected = stmt.executeUpdate();
-                    if (rowsAffected > 0) {
-                        success = true;
-                    }
-                }
-            }
+            success = vehiculeService.updateVehicule(vehicule);
         } catch (NumberFormatException e) {
             mv.addData("error", "ID invalide");
         } catch (SQLException e) {
@@ -152,52 +115,16 @@ public class VehiculeController {
         
         try {
             int id = Integer.parseInt(idStr);
-            
-            try (Connection conn = DatabaseConnection.getConnection()) {
-                String sql = "DELETE FROM vehicule WHERE id = ?";
-                try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                    stmt.setInt(1, id);
-                    
-                    int rowsAffected = stmt.executeUpdate();
-                    if (rowsAffected > 0) {
-                        success = true;
-                    }
-                }
-            } catch (SQLException e) {
-                e.printStackTrace();
-                mv.addData("error", "Erreur lors de la suppression: " + e.getMessage());
-            }
+            success = vehiculeService.deleteVehicule(id);
         } catch (NumberFormatException e) {
             mv.addData("error", "ID invalide");
+        } catch (SQLException e) {
+            e.printStackTrace();
+            mv.addData("error", "Erreur lors de la suppression: " + e.getMessage());
         }
         
         mv.addData("success", success);
         mv.addData("action", "delete");
         return mv;
-    }
-    
-    private Vehicule getVehiculeById(int id) {
-        Vehicule vehicule = null;
-        
-        try (Connection conn = DatabaseConnection.getConnection()) {
-            String sql = "SELECT id, reference, place, type_carburant FROM vehicule WHERE id = ?";
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setInt(1, id);
-                
-                try (ResultSet rs = stmt.executeQuery()) {
-                    if (rs.next()) {
-                        vehicule = new Vehicule();
-                        vehicule.setId(rs.getInt("id"));
-                        vehicule.setReference(rs.getString("reference"));
-                        vehicule.setPlace(rs.getInt("place"));
-                        vehicule.setTypeCarburant(rs.getString("type_carburant"));
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        
-        return vehicule;
     }
 }
