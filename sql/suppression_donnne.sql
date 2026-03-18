@@ -38,7 +38,8 @@ CREATE TABLE vehicule (
     id SERIAL PRIMARY KEY,
     reference VARCHAR(50) NOT NULL UNIQUE,
     place INTEGER NOT NULL CHECK (place > 0),
-    type_carburant VARCHAR(20) NOT NULL CHECK (type_carburant IN ('diesel', 'essence', 'Diesel', 'Essence'))
+    type_carburant VARCHAR(20) NOT NULL CHECK (type_carburant IN ('diesel', 'essence', 'Diesel', 'Essence')),
+    heure_disponibilite TIME
 );
 
 CREATE TABLE planning_config (
@@ -154,13 +155,13 @@ INSERT INTO planning_config (vitesse_moyenne, temps_attente, is_active) VALUES
 (35.0, 30, true);
 
 -- VEHICULES
-INSERT INTO vehicule (reference, place, type_carburant) VALUES
-('VH-101', 12, 'diesel'),
-('VH-102', 10, 'diesel'),
-('VH-103', 8, 'essence'),
-('VH-104', 6, 'diesel'),
-('VH-105', 4, 'essence'),
-('VH-106', 4, 'diesel');
+INSERT INTO vehicule (reference, place, type_carburant, heure_disponibilite) VALUES
+('VH-101', 12, 'diesel', '08:00:00'),
+('VH-102', 10, 'diesel', '08:00:00'),
+('VH-103', 8, 'essence', '08:00:00'),
+('VH-104', 6, 'diesel', '08:00:00'),
+('VH-105', 4, 'essence', '08:00:00'),
+('VH-106', 4, 'diesel', '08:00:00');
 
 -- RESERVATIONS
 INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUES

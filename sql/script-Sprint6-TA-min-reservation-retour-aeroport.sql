@@ -164,7 +164,7 @@ FROM distance d
 JOIN lieu l1 ON l1.id = d.from_lieu
 JOIN lieu l2 ON l2.id = d.to_lieu
 WHERE (l1.code = 'IVATO' AND l2.code IN ('COLBERT', 'BELVEDERE', 'SUNNY'))
-   OR (l2.code = 'IVATO' AND l1.code IN ('COLBERT', 'BELVEDERE', 'SUNNY'))
+   OR (l2.code = 'IVATO' AND l1.codFe IN ('COLBERT', 'BELVEDERE', 'SUNNY'))
 ORDER BY from_code, to_code;
 
 -- =========================================================================================
