@@ -398,28 +398,65 @@ WHERE DATE(date_heure_depart) = '2026-03-11';
 -- FIN DU SCRIPT DE TEST
 -- =========================================================================================
 
+-- =========================================================================================
+-- DONNÉES DE TEST RÉSERVATION (RÈGLE GESTION - HEURE DE DÉPART PAR REGROUPEMENT)
+-- =========================================================================================
+-- Objectif:
+-- 1) Créer un jeu de réservations sur le même créneau
+-- 2) Vérifier que le départ commun prend la dernière heure des réservations ASSIGNÉES
+--
+-- Cas attendu sur créneau 08:00-08:30:
+--   - R1 à 08:10
+--   - R2 à 08:20 (groupe trop grand pour forcer le non assigné)
+--   - R3 à 08:15
+-- => Heure de départ attendue = 08:15 si R2 reste non assignée
 
+-- Nettoyage ciblé de la date de test
+DELETE FROM reservation WHERE DATE(date_heure_depart) = '2026-03-24';
 
--------------
-INSERT INTO vehicule (reference, place, type_carburant) VALUES
-('Vehicule001', 12, 'diesel'),     -- 4 places diesel
-('Vehicule002', 5, 'essence'),    -- 4 places essence (moins prioritaire que Vehicule001)
-('Vehicule003', 5, 'diesel'),     -- 2 places diesel
-('Vehicule004', 12, 'essence'),     -- 5 places diesel
+-- Sécurisation: créer les lieux manquants si nécessaire (évite id_hotel NULL)
+INSERT INTO lieu (code, libelle)
+SELECT 'COLBERT', 'Hotel Colbert Antananarivo'
+WHERE NOT EXISTS (SELECT 1 FROM lieu WHERE UPPER(code) = 'COLBERT');
 
+INSERT INTO lieu (code, libelle)
+SELECT 'CARLTON', 'Carlton Madagascar'
+WHERE NOT EXISTS (SELECT 1 FROM lieu WHERE UPPER(code) = 'CARLTON');
 
-INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUES
-('Client1', 2, 7, '2026-03-12 09:00:00'),      -- 6 passagers -> Priorité 1
-('Client2', 2, 11, '2026-03-12 09:00:00'),    -- 5 passagers -> Priorité 2
-('Client3', 2, 3, '2026-03-12 09:00:00'),      -- 6 passagers -> Priorité 1
-('Client4', 2, 1, '2026-03-12 09:00:00'),      -- 6 passagers -> Priorité 1
-('Client5', 2, 2, '2026-03-12 09:00:00'),      -- 6 passagers -> Priorité 1
-('Client6', 2, 20, '2026-03-12 09:00:00'),      -- 6 passagers -> Priorité 1
+INSERT INTO lieu (code, libelle)
+SELECT 'LOUVRE', 'Hotel Le Louvre'
+WHERE NOT EXISTS (SELECT 1 FROM lieu WHERE UPPER(code) = 'LOUVRE');
 
+INSERT INTO lieu (code, libelle)
+SELECT 'RADISSON', 'Radisson Blu Waterfront'
+WHERE NOT EXISTS (SELECT 1 FROM lieu WHERE UPPER(code) = 'RADISSON');
 
-INSERT INTO lieu (code, libelle) VALUES
-('IVATO', 'Aéroport International Ivato');
+INSERT INTO lieu (code, libelle)
+SELECT 'SUNNY', 'Hotel Sunny'
+WHERE NOT EXISTS (SELECT 1 FROM lieu WHERE UPPER(code) = 'SUNNY');
 
--- Création des lieux correspondant aux hôtels
-INSERT INTO lieu (code, libelle) VALUES
-('COLBERT', 'Hotel1'),
+-- Réservations de test
+WITH lieu_map AS (
+    SELECT UPPER(code) AS code, MIN(id) AS id
+    FROM lieu
+    WHERE UPPER(code) IN ('COLBERT', 'CARLTON', 'LOUVRE', 'RADISSON', 'SUNNY')
+    GROUP BY UPPER(code)
+)
+INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart)
+SELECT v.client, m.id, v.nb_passager, v.date_heure_depart
+FROM (
+    VALUES
+    ('RG-Client-R1-08h10', 'COLBERT', 2, TIMESTAMP '2026-03-24 08:10:00'),
+    ('RG-Client-R2-08h20-NonAssignePotentiel', 'CARLTON', 11, TIMESTAMP '2026-03-24 08:20:00'),
+    ('RG-Client-R3-08h15', 'LOUVRE', 3, TIMESTAMP '2026-03-24 08:15:00'),
+    ('RG-Client-R4-09h05', 'RADISSON', 2, TIMESTAMP '2026-03-24 09:05:00'),
+    ('RG-Client-R5-09h25', 'SUNNY', 1, TIMESTAMP '2026-03-24 09:25:00')
+) AS v(client, code_hotel, nb_passager, date_heure_depart)
+JOIN lieu_map m ON m.code = v.code_hotel;
+
+-- Vérification rapide des réservations injectées
+SELECT r.id, r.client, l.code AS code_hotel, r.nb_passager, r.date_heure_depart
+FROM reservation r
+JOIN lieu l ON l.id = r.id_hotel
+WHERE DATE(r.date_heure_depart) = '2026-03-24'
+ORDER BY r.date_heure_depart, r.id;

@@ -1,10 +1,9 @@
 package services;
 
-import models.*;
-import util.DatabaseConnection;
-
 import java.sql.*;
 import java.util.*;
+import models.*;
+import util.DatabaseConnection;
 
 public class PlanningService {
 
@@ -122,20 +121,22 @@ public class PlanningService {
         List<Map.Entry<String, List<ReservationEnrichi>>> creneauxOrdonnes = new ArrayList<>(reservationsParCreneau.entrySet());
         creneauxOrdonnes.sort((e1, e2) -> Integer.compare(extraireDebutCreneauMinutes(e1.getKey()), extraireDebutCreneauMinutes(e2.getKey())));
 
-        for (Map.Entry<String, List<ReservationEnrichi>> entry : creneauxOrdonnes) {
+        List<ReservationEnrichi> reservationsReportees = new ArrayList<>();
+
+        for (int indexCreneau = 0; indexCreneau < creneauxOrdonnes.size(); indexCreneau++) {
+            Map.Entry<String, List<ReservationEnrichi>> entry = creneauxOrdonnes.get(indexCreneau);
+            boolean dernierCreneau = indexCreneau == creneauxOrdonnes.size() - 1;
             String creneau = entry.getKey();
-            List<ReservationEnrichi> resDansCreneau = entry.getValue();
+            List<ReservationEnrichi> resDansCreneau = new ArrayList<>();
+            if (!reservationsReportees.isEmpty()) {
+                resDansCreneau.addAll(reservationsReportees);
+                reservationsReportees.clear();
+            }
+            resDansCreneau.addAll(entry.getValue());
+            List<ReservationEnrichi> reservationsOriginalesCreneau = new ArrayList<>(resDansCreneau);
 
             List<VehiclePlanningDTO> planningsCurrentCreneau = new ArrayList<>();
             List<ReservationDTO> unassignedCurrentCreneau = new ArrayList<>();
-
-            java.time.LocalDateTime heureMaxCreneau = null;
-            for(ReservationEnrichi r : resDansCreneau) {
-                java.time.LocalDateTime dh = parserDateHeureReservation(r.reservation.getDateHeureDepart());
-                if (dh != null && (heureMaxCreneau == null || dh.isAfter(heureMaxCreneau))) {
-                    heureMaxCreneau = dh;
-                }
-            }
 
             resDansCreneau.sort((r1, r2) -> {
                 int cmpPassagers = Integer.compare(r2.reservation.getNbPassager(), r1.reservation.getNbPassager());
@@ -145,7 +146,19 @@ public class PlanningService {
 
             while (!resDansCreneau.isEmpty()) {
                 ReservationEnrichi r = resDansCreneau.remove(0);
-                Vehicule vehicule = trouverVehiculeOptimal(vehicules, planningsTousLesCreneaux, r.reservation, heureMaxCreneau);
+                r = affecterAuxPlanningsExistantsAvecDivision(
+                    planningsCurrentCreneau,
+                    r,
+                    config,
+                    aeroport,
+                    distances,
+                    lieux
+                );
+                if (r == null) {
+                    continue;
+                }
+                java.time.LocalDateTime heureReservation = parserDateHeureReservation(r.reservation.getDateHeureDepart());
+                Vehicule vehicule = trouverVehiculeOptimal(vehicules, planningsTousLesCreneaux, r.reservation, heureReservation);
 
                 if (vehicule != null) {
                     VehiclePlanningDTO nouveauPlanning = new VehiclePlanningDTO(
@@ -153,13 +166,68 @@ public class PlanningService {
                         vehicule.getReference(), 
                         vehicule.getPlace()
                     );
-                    ajouterClientAuVehicule(nouveauPlanning, r, config, aeroport, distances, lieux, heureMaxCreneau);
+                    ajouterClientAuVehicule(nouveauPlanning, r, config, aeroport, distances, lieux, null);
                     planningsCurrentCreneau.add(nouveauPlanning);
                     planningsTousLesCreneaux.add(nouveauPlanning);
 
-                    remplirPlacesRestantesOptimal(nouveauPlanning, resDansCreneau, config, aeroport, distances, lieux, r, heureMaxCreneau);
+                    remplirPlacesRestantesOptimal(nouveauPlanning, resDansCreneau, config, aeroport, distances, lieux, r, null);
                 } else {
-                    unassignedCurrentCreneau.add(new ReservationDTO(r.reservation));
+                    java.util.List<Vehicule> vehiculesDisponibles = vehicules.stream()
+                        .filter(v -> estVehiculeDisponiblePourReservation(v.getId(), planningsTousLesCreneaux, heureReservation))
+                        .collect(java.util.stream.Collectors.toList());
+
+                    DivisionReservationResult division = diviserReservation(r, vehiculesDisponibles, planningsTousLesCreneaux);
+                    boolean auMoinsUneAssignation = false;
+
+                    for (ReservationEnrichi reservationDivisee : division.getReservationsAssignees()) {
+                        Vehicule vehiculeDivise = trouverVehiculeOptimal(vehiculesDisponibles,
+                            reservationDivisee.getNbPassager(), planningsTousLesCreneaux);
+                        if (vehiculeDivise == null) {
+                            continue;
+                        }
+
+                        vehiculesDisponibles.removeIf(v -> v.getId() == vehiculeDivise.getId());
+
+                        VehiclePlanningDTO nouveauPlanning = new VehiclePlanningDTO(
+                            vehiculeDivise.getId(),
+                            vehiculeDivise.getReference(),
+                            vehiculeDivise.getPlace()
+                        );
+                        ajouterClientAuVehicule(nouveauPlanning, reservationDivisee, config, aeroport, distances, lieux, null);
+                        planningsCurrentCreneau.add(nouveauPlanning);
+                        planningsTousLesCreneaux.add(nouveauPlanning);
+                        auMoinsUneAssignation = true;
+                    }
+
+                    int passagersRestants = division.getPassagersRestants();
+                    if (!auMoinsUneAssignation && passagersRestants == 0) {
+                        passagersRestants = r.getNbPassager();
+                    }
+
+                    if (passagersRestants > 0) {
+                        Reservation reservationRestante = copierReservationAvecNbPassager(r.reservation, passagersRestants);
+                        ReservationEnrichi enrichieRestante = new ReservationEnrichi(
+                            reservationRestante,
+                            r.lieuHotel,
+                            r.getDistanceFromAeroport()
+                        );
+
+                        if (!dernierCreneau) {
+                            reservationsReportees.add(enrichieRestante);
+                        } else {
+                            unassignedCurrentCreneau.add(new ReservationDTO(reservationRestante));
+                        }
+                    }
+                }
+            }
+
+            java.time.LocalDateTime heureDepartRegroupement = determinerHeureDepartRegroupement(
+                planningsCurrentCreneau,
+                reservationsOriginalesCreneau
+            );
+            if (heureDepartRegroupement != null) {
+                for (VehiclePlanningDTO planningVehicule : planningsCurrentCreneau) {
+                    recalculerHorairesVehicule(planningVehicule, config, aeroport, distances, lieux, heureDepartRegroupement);
                 }
             }
 
@@ -236,29 +304,97 @@ public class PlanningService {
             reservationsParCreneau.computeIfAbsent(cleCreneau, k -> new ArrayList<>()).add(r);
         }
 
-        for (Map.Entry<String, List<ReservationEnrichi>> entry : reservationsParCreneau.entrySet()) {
-            List<ReservationEnrichi> resDansCreneau = entry.getValue();
+        List<Map.Entry<String, List<ReservationEnrichi>>> creneauxOrdonnes = new ArrayList<>(reservationsParCreneau.entrySet());
+        creneauxOrdonnes.sort((e1, e2) -> Integer.compare(extraireDebutCreneauMinutes(e1.getKey()), extraireDebutCreneauMinutes(e2.getKey())));
+        List<ReservationEnrichi> reservationsReportees = new ArrayList<>();
 
-            java.time.LocalDateTime heureMaxCreneau = null;
-            for(ReservationEnrichi r : resDansCreneau) {
-                java.time.LocalDateTime dh = parserDateHeureReservation(r.reservation.getDateHeureDepart());
-                if (dh != null && (heureMaxCreneau == null || dh.isAfter(heureMaxCreneau))) {
-                    heureMaxCreneau = dh;
-                }
+        for (Map.Entry<String, List<ReservationEnrichi>> entry : creneauxOrdonnes) {
+            List<ReservationEnrichi> resDansCreneau = new ArrayList<>();
+            if (!reservationsReportees.isEmpty()) {
+                resDansCreneau.addAll(reservationsReportees);
+                reservationsReportees.clear();
             }
+            resDansCreneau.addAll(entry.getValue());
+            List<ReservationEnrichi> reservationsOriginalesCreneau = new ArrayList<>(resDansCreneau);
+            List<VehiclePlanningDTO> planningsCurrentCreneau = new ArrayList<>();
 
             while (!resDansCreneau.isEmpty()) {
                 ReservationEnrichi r = resDansCreneau.remove(0);
-                Vehicule v = trouverVehiculeOptimal(vehicules, plannings, r.reservation, heureMaxCreneau);
+                r = affecterAuxPlanningsExistantsAvecDivision(
+                    planningsCurrentCreneau,
+                    r,
+                    config,
+                    aeroport,
+                    distances,
+                    lieux
+                );
+                if (r == null) {
+                    continue;
+                }
+                java.time.LocalDateTime heureReservation = parserDateHeureReservation(r.reservation.getDateHeureDepart());
+                List<VehiclePlanningDTO> planningsDeReference = new ArrayList<>(plannings);
+                planningsDeReference.addAll(planningsCurrentCreneau);
+                Vehicule v = trouverVehiculeOptimal(vehicules, planningsDeReference, r.reservation, heureReservation);
 
                 if (v != null) {
                     VehiclePlanningDTO nouveauPlanning = new VehiclePlanningDTO(v.getId(), v.getReference(), v.getPlace());
-                    ajouterClientAuVehicule(nouveauPlanning, r, config, aeroport, distances, lieux, heureMaxCreneau);
-                    plannings.add(nouveauPlanning);
+                    ajouterClientAuVehicule(nouveauPlanning, r, config, aeroport, distances, lieux, null);
+                    planningsCurrentCreneau.add(nouveauPlanning);
 
-                    remplirPlacesRestantesOptimal(nouveauPlanning, resDansCreneau, config, aeroport, distances, lieux, r, heureMaxCreneau);
+                    remplirPlacesRestantesOptimal(nouveauPlanning, resDansCreneau, config, aeroport, distances, lieux, r, null);
+                } else {
+                    java.util.List<Vehicule> vehiculesDisponibles = vehicules.stream()
+                        .filter(vd -> estVehiculeDisponiblePourReservation(vd.getId(), planningsDeReference, heureReservation))
+                        .collect(java.util.stream.Collectors.toList());
+                    DivisionReservationResult division = diviserReservation(r, vehiculesDisponibles, planningsDeReference);
+
+                    boolean auMoinsUneAssignation = false;
+                    for (ReservationEnrichi reservationDivisee : division.getReservationsAssignees()) {
+                        Vehicule vehiculeDivise = trouverVehiculeOptimal(vehiculesDisponibles,
+                            reservationDivisee.getNbPassager(), planningsDeReference);
+                        if (vehiculeDivise == null) {
+                            continue;
+                        }
+
+                        vehiculesDisponibles.removeIf(vd -> vd.getId() == vehiculeDivise.getId());
+
+                        VehiclePlanningDTO nouveauPlanningDivise = new VehiclePlanningDTO(
+                            vehiculeDivise.getId(),
+                            vehiculeDivise.getReference(),
+                            vehiculeDivise.getPlace()
+                        );
+                        ajouterClientAuVehicule(nouveauPlanningDivise, reservationDivisee, config, aeroport, distances, lieux, null);
+                        planningsCurrentCreneau.add(nouveauPlanningDivise);
+                        auMoinsUneAssignation = true;
+                    }
+
+                    int passagersRestants = division.getPassagersRestants();
+                    if (!auMoinsUneAssignation && passagersRestants == 0) {
+                        passagersRestants = r.getNbPassager();
+                    }
+
+                    if (passagersRestants > 0) {
+                        Reservation reservationRestante = copierReservationAvecNbPassager(r.reservation, passagersRestants);
+                        reservationsReportees.add(new ReservationEnrichi(
+                            reservationRestante,
+                            r.lieuHotel,
+                            r.getDistanceFromAeroport()
+                        ));
+                    }
                 }
             }
+
+            java.time.LocalDateTime heureDepartRegroupement = determinerHeureDepartRegroupement(
+                planningsCurrentCreneau,
+                reservationsOriginalesCreneau
+            );
+            if (heureDepartRegroupement != null) {
+                for (VehiclePlanningDTO planningVehicule : planningsCurrentCreneau) {
+                    recalculerHorairesVehicule(planningVehicule, config, aeroport, distances, lieux, heureDepartRegroupement);
+                }
+            }
+
+            plannings.addAll(planningsCurrentCreneau);
         }
 
         VehiclePlanningDTO planning = plannings.stream()
@@ -297,7 +433,17 @@ public class PlanningService {
             return groupes;
         }
 
-        for (Reservation reservation : reservations) {
+        List<Reservation> reservationsTriees = new ArrayList<>(reservations);
+        reservationsTriees.sort((r1, r2) -> {
+            java.time.LocalDateTime d1 = parserDateHeureReservation(r1.getDateHeureDepart());
+            java.time.LocalDateTime d2 = parserDateHeureReservation(r2.getDateHeureDepart());
+            if (d1 == null && d2 == null) return 0;
+            if (d1 == null) return 1;
+            if (d2 == null) return -1;
+            return d1.compareTo(d2);
+        });
+
+        for (Reservation reservation : reservationsTriees) {
             java.time.LocalDateTime dateHeure = parserDateHeureReservation(reservation.getDateHeureDepart());
             String cleCreneau;
 
@@ -519,6 +665,41 @@ public class PlanningService {
         }
     }
 
+    public java.time.LocalDateTime determinerHeureDepartRegroupement(List<VehiclePlanningDTO> planningsCreneau,
+                                                                       List<ReservationEnrichi> reservationsDuCreneau) {
+        if (planningsCreneau == null || planningsCreneau.isEmpty() || reservationsDuCreneau == null || reservationsDuCreneau.isEmpty()) {
+            return null;
+        }
+
+        java.util.Map<Integer, java.time.LocalDateTime> reservationParHeure = new java.util.HashMap<>();
+        for (ReservationEnrichi reservationEnrichie : reservationsDuCreneau) {
+            if (reservationEnrichie == null || reservationEnrichie.reservation == null) {
+                continue;
+            }
+            java.time.LocalDateTime dateReservation = parserDateHeureReservation(
+                reservationEnrichie.reservation.getDateHeureDepart()
+            );
+            if (dateReservation != null) {
+                reservationParHeure.put(reservationEnrichie.reservation.getId(), dateReservation);
+            }
+        }
+
+        java.time.LocalDateTime derniereHeureAssignee = null;
+        for (VehiclePlanningDTO planningVehicule : planningsCreneau) {
+            if (planningVehicule == null || planningVehicule.getClients() == null) {
+                continue;
+            }
+            for (ClientInfo clientInfo : planningVehicule.getClients()) {
+                java.time.LocalDateTime heureClientAssignee = reservationParHeure.get(clientInfo.getIdReservation());
+                if (heureClientAssignee != null && (derniereHeureAssignee == null || heureClientAssignee.isAfter(derniereHeureAssignee))) {
+                    derniereHeureAssignee = heureClientAssignee;
+                }
+            }
+        }
+
+        return derniereHeureAssignee;
+    }
+
     public Lieu trouverLieuPourReservation(Reservation reservation, List<Lieu> lieux) {
         if (reservation == null || lieux == null || lieux.isEmpty()) {
             return null;
@@ -586,6 +767,60 @@ public class PlanningService {
         return trouverVehiculeOptimal(vehiculesDisponibles, nbPassagers, planningsExistants);
     }
 
+    public ReservationEnrichi affecterAuxPlanningsExistantsAvecDivision(
+            List<VehiclePlanningDTO> planningsExistantsCreneau,
+            ReservationEnrichi reservation,
+            PlanningConfig config,
+            Lieu aeroport,
+            List<Distance> distances,
+            List<Lieu> lieux) {
+        if (reservation == null || reservation.reservation == null) {
+            return null;
+        }
+
+        int passagersRestants = Math.max(0, reservation.getNbPassager());
+        if (passagersRestants == 0 || planningsExistantsCreneau == null || planningsExistantsCreneau.isEmpty()) {
+            return reservation;
+        }
+
+        List<VehiclePlanningDTO> planningsAvecPlaces = new ArrayList<>();
+        for (VehiclePlanningDTO planning : planningsExistantsCreneau) {
+            if (planning != null && planning.getPlacesRestantes() > 0) {
+                planningsAvecPlaces.add(planning);
+            }
+        }
+
+        planningsAvecPlaces.sort((p1, p2) -> Integer.compare(p2.getPlacesRestantes(), p1.getPlacesRestantes()));
+
+        for (VehiclePlanningDTO planning : planningsAvecPlaces) {
+            if (passagersRestants <= 0) {
+                break;
+            }
+
+            int aAffecter = Math.min(passagersRestants, planning.getPlacesRestantes());
+            if (aAffecter <= 0) {
+                continue;
+            }
+
+            Reservation reservationPartielle = copierReservationAvecNbPassager(reservation.reservation, aAffecter);
+            ReservationEnrichi enrichiePartielle = new ReservationEnrichi(
+                reservationPartielle,
+                reservation.lieuHotel,
+                reservation.getDistanceFromAeroport()
+            );
+
+            ajouterClientAuVehicule(planning, enrichiePartielle, config, aeroport, distances, lieux, null);
+            passagersRestants -= aAffecter;
+        }
+
+        if (passagersRestants <= 0) {
+            return null;
+        }
+
+        Reservation reliquat = copierReservationAvecNbPassager(reservation.reservation, passagersRestants);
+        return new ReservationEnrichi(reliquat, reservation.lieuHotel, reservation.getDistanceFromAeroport());
+    }
+
     public boolean estVehiculeDisponiblePourReservation(int idVehicule,
                                                          List<VehiclePlanningDTO> planningsExistants,
                                                          java.time.LocalDateTime dateHeureReservation) {
@@ -605,26 +840,26 @@ public class PlanningService {
             return true;
         }
 
-        java.time.LocalDateTime dernierRetour = planningsVehicule.stream()
+        java.time.LocalTime dernierRetour = planningsVehicule.stream()
             .map(this::extraireHeureRetourPlanning)
             .filter(h -> h != null)
-            .max(java.time.LocalDateTime::compareTo)
+            .max(java.time.LocalTime::compareTo)
             .orElse(null);
 
         if (dernierRetour == null) {
             return false;
         }
 
-        return !dernierRetour.isAfter(dateHeureReservation);
+        return !dernierRetour.isAfter(dateHeureReservation.toLocalTime());
     }
 
-    public java.time.LocalDateTime extraireHeureRetourPlanning(VehiclePlanningDTO planning) {
+    public java.time.LocalTime extraireHeureRetourPlanning(VehiclePlanningDTO planning) {
         if (planning == null) {
             return null;
         }
 
         if (planning.getHeureRetourParsed() != null) {
-            return planning.getHeureRetourParsed();
+            return planning.getHeureRetourParsed().toLocalTime();
         }
 
         String heureRetour = planning.getDateHeureRetour();
@@ -634,67 +869,166 @@ public class PlanningService {
 
         try {
             java.time.LocalTime h = java.time.LocalTime.parse(heureRetour);
-            return java.time.LocalDate.now().atTime(h);
+            return h;
         } catch (Exception e) {
             return null;
         }
     }
 
     public Vehicule trouverVehiculeOptimal(List<Vehicule> vehiculesDisponibles, int nbPassagers, List<VehiclePlanningDTO> planningsExistants) {
-        List<Vehicule> candidats = new ArrayList<>();
-        
-        for (Vehicule v : vehiculesDisponibles) {
-            if (v.getPlace() >= nbPassagers) {
-                candidats.add(v);
-            }
+        java.util.Map<Integer, Long> compteurCourses = construireCompteurCourses(planningsExistants);
+        return choisirVehiculeSelonPriorites(vehiculesDisponibles, nbPassagers, compteurCourses, false);
+    }
+
+    public DivisionReservationResult diviserReservation(ReservationEnrichi reservation,
+                                                        List<Vehicule> vehiculesDisponibles,
+                                                        List<VehiclePlanningDTO> planningsExistants) {
+        DivisionReservationResult result = new DivisionReservationResult();
+        if (reservation == null || reservation.reservation == null) {
+            return result;
         }
-        
-        if (candidats.isEmpty()) {
+
+        int passagersRestants = Math.max(0, reservation.getNbPassager());
+        if (passagersRestants == 0 || vehiculesDisponibles == null || vehiculesDisponibles.isEmpty()) {
+            result.setPassagersRestants(passagersRestants);
+            return result;
+        }
+
+        List<Vehicule> vehiculesTries = new ArrayList<>(vehiculesDisponibles);
+        java.util.Map<Integer, Long> compteurCourses = construireCompteurCourses(planningsExistants);
+
+        while (passagersRestants > 0 && !vehiculesTries.isEmpty()) {
+            Vehicule vehiculeChoisi = choisirVehiculeSelonPriorites(
+                vehiculesTries,
+                passagersRestants,
+                compteurCourses,
+                true
+            );
+            if (vehiculeChoisi == null) {
+                break;
+            }
+
+            int placesDisponibles = Math.max(0, vehiculeChoisi.getPlace());
+            if (placesDisponibles == 0) {
+                break;
+            }
+
+            int passagersAffectes = Math.min(passagersRestants, placesDisponibles);
+            Reservation reservationPartielle = copierReservationAvecNbPassager(reservation.reservation, passagersAffectes);
+            result.getReservationsAssignees().add(new ReservationEnrichi(
+                reservationPartielle,
+                reservation.lieuHotel,
+                reservation.getDistanceFromAeroport()
+            ));
+
+            passagersRestants -= passagersAffectes;
+            vehiculesTries.removeIf(v -> v.getId() == vehiculeChoisi.getId());
+        }
+
+        result.setPassagersRestants(passagersRestants);
+        return result;
+    }
+
+    public java.util.Map<Integer, Long> construireCompteurCourses(List<VehiclePlanningDTO> planningsExistants) {
+        java.util.Map<Integer, Long> compteurCourses = new java.util.HashMap<>();
+        if (planningsExistants == null) {
+            return compteurCourses;
+        }
+
+        for (VehiclePlanningDTO planning : planningsExistants) {
+            compteurCourses.put(planning.getIdVehicule(), compteurCourses.getOrDefault(planning.getIdVehicule(), 0L) + 1L);
+        }
+        return compteurCourses;
+    }
+
+    public Vehicule choisirVehiculeSelonPriorites(List<Vehicule> vehiculesDisponibles,
+                                                  int nbPassagers,
+                                                  java.util.Map<Integer, Long> compteurCourses,
+                                                  boolean autoriserPartiel) {
+        if (vehiculesDisponibles == null || vehiculesDisponibles.isEmpty()) {
             return null;
         }
-        
-        int placesMin = candidats.stream()
-            .mapToInt(Vehicule::getPlace)
-            .min()
-            .orElse(Integer.MAX_VALUE);
-        
-        candidats = candidats.stream()
-            .filter(v -> v.getPlace() == placesMin)
+
+        List<Vehicule> candidatsPlein = vehiculesDisponibles.stream()
+            .filter(v -> v.getPlace() >= nbPassagers)
             .collect(java.util.stream.Collectors.toList());
-        
-        if (candidats.size() == 1) {
-            return candidats.get(0);
+
+        List<Vehicule> candidatsBase = new ArrayList<>();
+        boolean affectationComplete = !candidatsPlein.isEmpty();
+        if (affectationComplete) {
+            candidatsBase.addAll(candidatsPlein);
+        } else if (autoriserPartiel) {
+            candidatsBase.addAll(vehiculesDisponibles);
+        } else {
+            return null;
         }
 
-        java.util.Map<Integer, Long> compteurCourses = new java.util.HashMap<>();
-        if (planningsExistants != null) {
-            for (VehiclePlanningDTO p : planningsExistants) {
-                compteurCourses.put(p.getIdVehicule(), compteurCourses.getOrDefault(p.getIdVehicule(), 0L) + 1L);
-            }
-        }
+        long meilleureMetric = affectationComplete
+            ? candidatsBase.stream().mapToLong(v -> (long) v.getPlace() - nbPassagers).min().orElse(Long.MAX_VALUE)
+            : candidatsBase.stream().mapToLong(Vehicule::getPlace).max().orElse(0L);
 
-        long minCourses = candidats.stream()
+        List<Vehicule> candidatsProximite = candidatsBase.stream()
+            .filter(v -> affectationComplete
+                ? ((long) v.getPlace() - nbPassagers) == meilleureMetric
+                : (long) v.getPlace() == meilleureMetric)
+            .collect(java.util.stream.Collectors.toList());
+
+        long minCourses = candidatsProximite.stream()
             .mapToLong(v -> compteurCourses.getOrDefault(v.getId(), 0L))
             .min()
             .orElse(0L);
 
-        candidats = candidats.stream()
+        List<Vehicule> candidatsMoinsCourses = candidatsProximite.stream()
             .filter(v -> compteurCourses.getOrDefault(v.getId(), 0L) == minCourses)
             .collect(java.util.stream.Collectors.toList());
 
-        if (candidats.size() == 1) {
-            return candidats.get(0);
-        }
-        
-        List<Vehicule> diesels = candidats.stream()
+        List<Vehicule> diesels = candidatsMoinsCourses.stream()
             .filter(v -> "diesel".equalsIgnoreCase(v.getTypeCarburant()))
             .collect(java.util.stream.Collectors.toList());
-        
-        if (!diesels.isEmpty()) {
-            return diesels.get(new java.util.Random().nextInt(diesels.size()));
+
+        List<Vehicule> baseRandom = diesels.isEmpty() ? candidatsMoinsCourses : diesels;
+        if (baseRandom.isEmpty()) {
+            return null;
         }
-        
-        return candidats.get(new java.util.Random().nextInt(candidats.size()));
+
+        return baseRandom.get(new java.util.Random().nextInt(baseRandom.size()));
+    }
+
+    public Reservation copierReservationAvecNbPassager(Reservation source, int nbPassagers) {
+        Reservation copie = new Reservation();
+        if (source == null) {
+            return copie;
+        }
+
+        copie.setId(source.getId());
+        copie.setClient(source.getClient());
+        copie.setIdHotel(source.getIdHotel());
+        copie.setHotel(source.getHotel());
+        copie.setDateHeureDepart(source.getDateHeureDepart());
+        copie.setNbPassager(Math.max(0, nbPassagers));
+        return copie;
+    }
+
+    public static class DivisionReservationResult {
+        private List<ReservationEnrichi> reservationsAssignees;
+        private int passagersRestants;
+
+        public DivisionReservationResult() {
+            this.reservationsAssignees = new ArrayList<>();
+            this.passagersRestants = 0;
+        }
+
+        public List<ReservationEnrichi> getReservationsAssignees() {
+            return reservationsAssignees;
+        }
+
+        public int getPassagersRestants() {
+            return passagersRestants;
+        }
+
+        public void setPassagersRestants(int passagersRestants) {
+            this.passagersRestants = Math.max(0, passagersRestants);
+        }
     }
 
     public List<EtapeItineraire> calculerItineraireDetaille(VehiclePlanningDTO planning, PlanningConfig config,
