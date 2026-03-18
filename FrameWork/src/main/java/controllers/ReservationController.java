@@ -4,35 +4,25 @@ import annotation.ClasseAnnotation;
 import annotation.GetMapping;
 import annotation.MethodeAnnotation;
 import annotation.PostMapping;
-import java.sql.*;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import models.Lieu;
 import models.Reservation;
 import modelview.ModelView;
-import util.DatabaseConnection;
+import services.ReservationService;
 
 @ClasseAnnotation("/reservation")
 public class ReservationController {
     
+    private ReservationService reservationService = new ReservationService();
   
     @MethodeAnnotation("/reservation/form")
     @GetMapping
     public ModelView getFormReservation() {
         ModelView mv = new ModelView("/formReservation.jsp");
-        try (Connection conn = DatabaseConnection.getConnection()) {
-            List<Lieu> lieux = new ArrayList<>();
-            String sql = "SELECT id, code, libelle FROM lieu WHERE code <> 'IVATO' ORDER BY libelle";
-            try (PreparedStatement stmt = conn.prepareStatement(sql);
-                 ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    Lieu l = new Lieu();
-                    l.setId(rs.getInt("id"));
-                    l.setCode(rs.getString("code"));
-                    l.setLibelle(rs.getString("libelle"));
-                    lieux.add(l);
-                }
-            }
+        try {
+            List<Lieu> lieux = reservationService.getLieuxExceptIvato();
             mv.addData("lieux", lieux);
         } catch (SQLException e) {
             e.printStackTrace();
@@ -48,24 +38,8 @@ public class ReservationController {
         ModelView mv = new ModelView("/resultReservation.jsp");
         boolean success = false;
         
-        try (Connection conn = DatabaseConnection.getConnection()) {
-            String sql = "INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUES (?, ?, ?, ?::timestamp)";
-            try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                stmt.setString(1, reservation.getClient());
-                stmt.setInt(2, reservation.getIdHotel());
-                stmt.setInt(3, reservation.getNbPassager());
-                stmt.setString(4, reservation.getDateHeureDepart());
-                
-                int rowsAffected = stmt.executeUpdate();
-                if (rowsAffected > 0) {
-                    success = true;
-                    try (ResultSet rs = stmt.getGeneratedKeys()) {
-                        if (rs.next()) {
-                            reservation.setId(rs.getInt(1));
-                        }
-                    }
-                }
-            }
+        try {
+            success = reservationService.saveReservation(reservation);
         } catch (SQLException e) {
             e.printStackTrace();
             mv.addData("error", "Erreur lors de l'enregistrement: " + e.getMessage());
@@ -84,23 +58,8 @@ public class ReservationController {
         mv.addData("reservationListPage", true);
         mv.addData("datePlanning", "");
 
-        String sql = "SELECT r.id, r.client, r.id_hotel, h.nom AS hotel, r.nb_passager, r.date_heure_depart " +
-            "FROM reservation r JOIN hotel h ON r.id_hotel = h.id " +
-            "ORDER BY r.date_heure_depart";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    Reservation r = new Reservation();
-                    r.setId(rs.getInt("id"));
-                    r.setClient(rs.getString("client"));
-                    r.setIdHotel(rs.getInt("id_hotel"));
-                    r.setHotel(rs.getString("hotel"));
-                    r.setNbPassager(rs.getInt("nb_passager"));
-                    r.setDateHeureDepart(String.valueOf(rs.getTimestamp("date_heure_depart")));
-                    reservations.add(r);
-                }
-            }
+        try {
+            reservations = reservationService.getAllReservations();
         } catch (SQLException e) {
             System.err.println("==== ERREUR SQL dans getAllReservations ====");
             e.printStackTrace();

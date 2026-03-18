@@ -297,7 +297,7 @@ Créer le script (actuel) pour les données de teste
 	Qui : Manoa
 
 
-Sprint 3 18/03/2026
+Sprint 6 18/03/2026
 TL : RasolofoHarilala Sandaniaina Manoa ETU003200
 BackOffice : Tolojanahary Elia Nantenanaina ETU003230
 BackOffice : Rahajarijaona Mir ETU003132
@@ -310,3 +310,38 @@ Les vehicules peuvent maintenant retourner à l'aéroport et prendre une nouvell
 	Classe : PlanningController()
     Base : planning_config, parametre_vehicule, reservation, lieu
     Qui : Mir
+
+
+
+Sprint 7 18/03/2026
+TL : Rahajarijaona Mir ETU003132
+BackOffice : Tolojanahary Elia Nantenanaina ETU003230
+FrontOffice : RasolofoHarilala Sandaniaina Manoa ETU003200
+
+Gestion de l'heure de départ par regroupement
+    Affichage : 
+    Métier :
+        Classe : PlanningService
+        Fonction : recalculerHorairesVehicule(VehiclePlanningDTO planning, PlanningConfig config, Lieu aeroport, List<Distance> distances, List<Lieu> lieux, java.time.LocalDateTime heureDepartForcee)
+    Base : reservation, planning
+    Description : Tous les vehicules dans le même regroupement vont paritr en même temps, qui sera la dernière date de reservation dans le regroupement. Si la dernière n'est pas assignée, on va remonter vers l'avant-dernière et ainsi de suite. (ex: de 8h00 à 8h30, si r1 à 8h10, r2 à 8h20, r3 à 8h15, mais r2 n'est pas assignée, le depart sera à 8h15).
+    Qui : Elia
+
+Réassignation basée sur la date de la prochaine réservation
+    Affichage : 
+    Métier :
+        Classe : PlanningService
+        Fonction : grouperReservationsParCreneau(List<Reservation> reservations, int intervalleMinutes)
+    Base : reservation, planning_config
+    Description : Les reservations non assignées vont être réassignées à la première date de la prochaine reservation, et non à chaque temps d'attente. Si le temps d'attente est de 30mn (ex: 8h00 à 8h30) et qu'une réservation non assignée ne trouve pas de véhicule, au lieu de chercher pour 8h30-9h00 (s'il n'y a rien), elle sera regroupée avec la prochaine vraie réservation (ex: à 12h00).
+    Qui : Manoa
+
+Division des clients en cas d'insuffisance de places
+    Affichage : 
+    Métier :
+        Classe : PlanningService
+        Fonction : diviserReservation(ReservationEnrichi reservation, List<Vehicule> vehiculesDisponibles), trouverVehiculeOptimal(List<Vehicule> vehiculesDisponibles, int nbPassagers, List<VehiclePlanningDTO> planningsExistants)
+    Base : reservation, vehicule
+    Description : Les clients sont divisibles. a) Rechercher la réservation avec le max de nb_de_passager. b) Si iteration x et pas de véhicule assez grand, la diviser : i) Mettre une partie dans le véhicule ayant le plus de places disponibles. ii) Si les passagers restants rentrent dans un seul véhicule, choisir celui avec le nb de places dispos le plus proche du reste. S'il n'y a plus de véhicules dispos après n divisions, la réservation restera non assignée avec uniquement le nb de passagers restants.
+    Qui : Elia
+
