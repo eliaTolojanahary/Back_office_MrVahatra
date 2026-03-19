@@ -47,7 +47,7 @@ CREATE TABLE reservation (
     id_hotel INTEGER NOT NULL,
     nb_passager INTEGER NOT NULL CHECK (nb_passager > 0),
     date_heure_depart TIMESTAMP NOT NULL,
-    CONSTRAINT fk_reservation_hotel FOREIGN KEY (id_hotel) REFERENCES hotel(id)
+    CONSTRAINT fk_reservation_hotel FOREIGN KEY (id_hotel) REFERENCES lieu(id)
 );
 
 CREATE TABLE assignement (
