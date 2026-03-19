@@ -1,179 +1,174 @@
 -- =========================================================================================
--- SCENARIO TEST TA - MINIMUM DE RESERVATIONS ASSIGNEES + RETOUR AEROPORT
--- Date: 17-03-2026
--- Objectif:
---   1) Montrer quel vehicule retourne en premier a l'aeroport apres un trajet
---   2) Verifier la priorite du vehicule ayant le moins de courses assignees
---
--- IMPORTANT:
---   - Ce script utilise UNE date de test unique: 2026-03-24
---   - Executer ensuite /planning/result avec cette date
+-- ETAPE 2: CREATION DES TABLES
 -- =========================================================================================
 
--- =========================================================================================
--- 0) CONFIGURATION ACTIVE (vitesse = 40 km/h, attente = 30 min)
--- =========================================================================================
-UPDATE planning_config SET is_active = false WHERE is_active = true;
+CREATE TABLE lieu (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    libelle VARCHAR(200) NOT NULL
+);
 
-INSERT INTO planning_config (vitesse_moyenne, temps_attente, is_active)
-VALUES (40.0, 30, true);
+CREATE INDEX idx_lieu_code ON lieu(code);
+
+CREATE TABLE vehicule (
+    id SERIAL PRIMARY KEY,
+    reference VARCHAR(50) NOT NULL UNIQUE,
+    place INTEGER NOT NULL CHECK (place > 0),
+    type_carburant VARCHAR(20) NOT NULL CHECK (type_carburant IN ('diesel', 'essence', 'Diesel', 'Essence'))
+);
+
+CREATE TABLE planning_config (
+    id SERIAL PRIMARY KEY,
+    vitesse_moyenne NUMERIC(10,2) NOT NULL CHECK (vitesse_moyenne > 0),
+    temps_attente INTEGER NOT NULL CHECK (temps_attente >= 0),
+    date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+CREATE INDEX idx_planning_config_active ON planning_config(is_active);
+
+CREATE TABLE distance (
+    id SERIAL PRIMARY KEY,
+    from_lieu INTEGER NOT NULL,
+    to_lieu INTEGER NOT NULL,
+    km NUMERIC(10,2) NOT NULL CHECK (km > 0),
+    CONSTRAINT fk_distance_from_lieu FOREIGN KEY (from_lieu) REFERENCES lieu(id),
+    CONSTRAINT fk_distance_to_lieu FOREIGN KEY (to_lieu) REFERENCES lieu(id),
+    CONSTRAINT chk_different_lieu CHECK (from_lieu <> to_lieu),
+    CONSTRAINT unique_distance_pair UNIQUE (from_lieu, to_lieu)
+);
+
+CREATE INDEX idx_distance_from ON distance(from_lieu);
+CREATE INDEX idx_distance_to ON distance(to_lieu);
+
+CREATE TABLE reservation (
+    id SERIAL PRIMARY KEY,
+    client VARCHAR(100) NOT NULL,
+    id_hotel INTEGER NOT NULL,
+    nb_passager INTEGER NOT NULL CHECK (nb_passager > 0),
+    date_heure_depart TIMESTAMP NOT NULL,
+    CONSTRAINT fk_reservation_hotel FOREIGN KEY (id_hotel) REFERENCES hotel(id)
+);
+
+CREATE TABLE assignement (
+    id SERIAL PRIMARY KEY,
+    id_reservation INTEGER NOT NULL,
+    id_vehicule INTEGER NOT NULL,
+    nb_passager_assigne INTEGER NOT NULL CHECK (nb_passager_assigne > 0),
+    date_planning DATE NOT NULL,
+    creneau VARCHAR(30),
+    heure_depart VARCHAR(5),
+    heure_retour VARCHAR(5),
+    date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_assignement_reservation FOREIGN KEY (id_reservation) REFERENCES reservation(id) ON DELETE CASCADE,
+    CONSTRAINT fk_assignement_vehicule FOREIGN KEY (id_vehicule) REFERENCES vehicule(id) ON DELETE CASCADE,
+    CONSTRAINT uq_assignement UNIQUE (date_planning, id_reservation, id_vehicule, creneau)
+);
+
+CREATE INDEX idx_assignement_date ON assignement(date_planning);
+CREATE INDEX idx_assignement_reservation ON assignement(id_reservation);
+CREATE INDEX idx_assignement_vehicule ON assignement(id_vehicule);
 
 -- =========================================================================================
--- 1) FLOTTE DEDIEE AU TEST (2 vehicules de 9 places)
---    - Diesel prioritaire en cas d'egalite totale
+-- ETAPE 3: INSERTION DES DONNEES
 -- =========================================================================================
-DELETE FROM vehicule WHERE reference LIKE 'TA-VH-%';
 
+-- LIEUX
+INSERT INTO lieu (code, libelle) VALUES
+('IVATO', 'Aeroport International Ivato'),
+('COLBERT', 'Hotel Colbert Antananarivo'),
+('CARLTON', 'Carlton Madagascar'),
+('LOUVRE', 'Hotel Le Louvre'),
+('PALISSANDRE', 'Palissandre Hotel'),
+('RADISSON', 'Radisson Blu Waterfront'),
+('SAKAMANGA', 'Hotel Sakamanga'),
+('SUNNY', 'Hotel Sunny');
+
+-- DISTANCES
+INSERT INTO distance (from_lieu, to_lieu, km) VALUES
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'COLBERT'), 18.0),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'CARLTON'), 16.0),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'LOUVRE'), 19.0),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'PALISSANDRE'), 14.0),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'RADISSON'), 13.0),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 17.0),
+((SELECT id FROM lieu WHERE code = 'IVATO'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 21.0),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'CARLTON'), 5.0),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'LOUVRE'), 3.0),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'PALISSANDRE'), 6.0),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'RADISSON'), 7.0),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 4.0),
+((SELECT id FROM lieu WHERE code = 'COLBERT'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 6.0),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'LOUVRE'), 4.0),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'PALISSANDRE'), 6.0),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'RADISSON'), 5.0),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 7.0),
+((SELECT id FROM lieu WHERE code = 'CARLTON'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 8.0),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'PALISSANDRE'), 5.0),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'RADISSON'), 6.0),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 5.0),
+((SELECT id FROM lieu WHERE code = 'LOUVRE'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 7.0),
+((SELECT id FROM lieu WHERE code = 'PALISSANDRE'), (SELECT id FROM lieu WHERE code = 'RADISSON'), 4.0),
+((SELECT id FROM lieu WHERE code = 'PALISSANDRE'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 6.0),
+((SELECT id FROM lieu WHERE code = 'PALISSANDRE'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 9.0),
+((SELECT id FROM lieu WHERE code = 'RADISSON'), (SELECT id FROM lieu WHERE code = 'SAKAMANGA'), 6.0),
+((SELECT id FROM lieu WHERE code = 'RADISSON'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 8.0),
+((SELECT id FROM lieu WHERE code = 'SAKAMANGA'), (SELECT id FROM lieu WHERE code = 'SUNNY'), 5.0);
+
+-- CONFIGURATION
+INSERT INTO planning_config (vitesse_moyenne, temps_attente, is_active) VALUES
+(35.0, 30, true);
+
+-- VEHICULES
 INSERT INTO vehicule (reference, place, type_carburant) VALUES
-('TA-VH-01', 9, 'diesel'),
-('TA-VH-02', 9, 'essence');
+('VH-101', 12, 'diesel'),
+('VH-102', 10, 'diesel'),
+('VH-103', 8, 'essence'),
+('VH-104', 6, 'diesel'),
+('VH-105', 4, 'essence'),
+('VH-106', 4, 'diesel'),
+('VH-107', 2, 'essence'),
+('VH-108', 15, 'diesel');
 
--- =========================================================================================
--- 2) SECURISATION DES LIEUX NECESSAIRES
--- =========================================================================================
-INSERT INTO lieu (code, libelle)
-SELECT 'IVATO', 'Aeroport International Ivato'
-WHERE NOT EXISTS (SELECT 1 FROM lieu WHERE code = 'IVATO');
-
-INSERT INTO lieu (code, libelle)
-SELECT 'COLBERT', 'Hotel Colbert Antananarivo'
-WHERE NOT EXISTS (SELECT 1 FROM lieu WHERE code = 'COLBERT');
-
-INSERT INTO lieu (code, libelle)
-SELECT 'BELVEDERE', 'Hotel Belvedere'
-WHERE NOT EXISTS (SELECT 1 FROM lieu WHERE code = 'BELVEDERE');
-
-INSERT INTO lieu (code, libelle)
-SELECT 'SUNNY', 'Hotel Sunny'
-WHERE NOT EXISTS (SELECT 1 FROM lieu WHERE code = 'SUNNY');
-
--- =========================================================================================
--- 2-bis) DONNEES HOTEL (MANQUANTES)
--- =========================================================================================
--- Ces donnees sont utiles pour les ecrans/formulaires de reservation qui lisent la table hotel.
-INSERT INTO hotel (nom, adresse)
-SELECT 'Hotel Colbert Antananarivo', 'Rue Prince Ratsimamanga, Antananarivo'
-WHERE NOT EXISTS (SELECT 1 FROM hotel WHERE nom = 'Hotel Colbert Antananarivo');
-
-INSERT INTO hotel (nom, adresse)
-SELECT 'Hotel Belvedere', 'Route dAnkadimbahoaka, Antananarivo'
-WHERE NOT EXISTS (SELECT 1 FROM hotel WHERE nom = 'Hotel Belvedere');
-
-INSERT INTO hotel (nom, adresse)
-SELECT 'Hotel Sunny', 'Rue Rainibetsimisaraka, Antananarivo'
-WHERE NOT EXISTS (SELECT 1 FROM hotel WHERE nom = 'Hotel Sunny');
-
--- =========================================================================================
--- 3) DISTANCES MINIMALES REQUISES POUR LE CALCUL DES HEURES DE RETOUR
--- =========================================================================================
-INSERT INTO distance (from_lieu, to_lieu, km)
-SELECT (SELECT id FROM lieu WHERE code = 'IVATO'),
-       (SELECT id FROM lieu WHERE code = 'COLBERT'),
-       15.5
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM distance d
-    WHERE (d.from_lieu = (SELECT id FROM lieu WHERE code = 'IVATO')
-       AND d.to_lieu   = (SELECT id FROM lieu WHERE code = 'COLBERT'))
-       OR
-          (d.from_lieu = (SELECT id FROM lieu WHERE code = 'COLBERT')
-       AND d.to_lieu   = (SELECT id FROM lieu WHERE code = 'IVATO'))
-);
-
-INSERT INTO distance (from_lieu, to_lieu, km)
-SELECT (SELECT id FROM lieu WHERE code = 'IVATO'),
-       (SELECT id FROM lieu WHERE code = 'BELVEDERE'),
-       19.2
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM distance d
-    WHERE (d.from_lieu = (SELECT id FROM lieu WHERE code = 'IVATO')
-       AND d.to_lieu   = (SELECT id FROM lieu WHERE code = 'BELVEDERE'))
-       OR
-          (d.from_lieu = (SELECT id FROM lieu WHERE code = 'BELVEDERE')
-       AND d.to_lieu   = (SELECT id FROM lieu WHERE code = 'IVATO'))
-);
-
-INSERT INTO distance (from_lieu, to_lieu, km)
-SELECT (SELECT id FROM lieu WHERE code = 'IVATO'),
-       (SELECT id FROM lieu WHERE code = 'SUNNY'),
-       13.9
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM distance d
-    WHERE (d.from_lieu = (SELECT id FROM lieu WHERE code = 'IVATO')
-       AND d.to_lieu   = (SELECT id FROM lieu WHERE code = 'SUNNY'))
-       OR
-          (d.from_lieu = (SELECT id FROM lieu WHERE code = 'SUNNY')
-       AND d.to_lieu   = (SELECT id FROM lieu WHERE code = 'IVATO'))
-);
-
--- =========================================================================================
--- 4) NETTOYAGE DES RESERVATIONS DE CETTE DATE
--- =========================================================================================
-DELETE FROM reservation WHERE DATE(date_heure_depart) = '2026-03-24';
-
--- =========================================================================================
--- 5) INSERTION DES RESERVATIONS DE TEST
---
--- Sequence voulue:
---   A) 08:00/08:05 : 2 reservations de 9 passagers
---      -> TA-VH-01 (diesel) prend la premiere (egalite totale, diesel prioritaire)
---      -> TA-VH-02 prend la deuxieme (TA-VH-01 encore en trajet)
---
---   B) 08:55 : nouvelle reservation
---      -> le vehicule revenu le plus tot reprend en premier
---
---   C) 10:00 : nouvelle reservation
---      -> les deux vehicules sont disponibles
---      -> doit choisir celui avec le MOINS DE COURSES deja assignees
--- =========================================================================================
+-- RESERVATIONS
 INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUES
-('TA-R1-COLBERT-9P',   (SELECT id FROM hotel WHERE nom = 'Hotel Colbert Antananarivo'), 9, '2026-03-24 08:00:00'),
-('TA-R2-BELVEDERE-9P', (SELECT id FROM hotel WHERE nom = 'Hotel Belvedere'),             9, '2026-03-24 08:05:00'),
-('TA-R3-SUNNY-9P',     (SELECT id FROM hotel WHERE nom = 'Hotel Sunny'),                 9, '2026-03-24 08:55:00'),
-('TA-R4-COLBERT-9P',   (SELECT id FROM hotel WHERE nom = 'Hotel Colbert Antananarivo'), 9, '2026-03-24 10:00:00');
+('CL-2026-001', (SELECT id FROM hotel WHERE nom = 'Hotel Colbert Antananarivo' LIMIT 1), 3, '2026-03-24 08:10:00'),
+('CL-2026-002', (SELECT id FROM hotel WHERE nom = 'Carlton Madagascar' LIMIT 1), 11, '2026-03-24 08:20:00'),
+('CL-2026-003', (SELECT id FROM hotel WHERE nom = 'Hotel Le Louvre' LIMIT 1), 2, '2026-03-24 08:15:00'),
+('CL-2026-004', (SELECT id FROM hotel WHERE nom = 'Palissandre Hotel' LIMIT 1), 4, '2026-03-24 09:05:00'),
+('CL-2026-005', (SELECT id FROM hotel WHERE nom = 'Radisson Blu Waterfront' LIMIT 1), 1, '2026-03-24 09:25:00'),
+('CL-2026-006', (SELECT id FROM hotel WHERE nom = 'Hotel Sakamanga' LIMIT 1), 7, '2026-03-24 10:00:00'),
+('CL-2026-007', (SELECT id FROM hotel WHERE nom = 'Hotel Sunny' LIMIT 1), 5, '2026-03-24 10:20:00'),
+('CL-2026-008', (SELECT id FROM hotel WHERE nom = 'Hotel Colbert Antananarivo' LIMIT 1), 9, '2026-03-24 11:00:00'),
+('CL-2026-009', (SELECT id FROM hotel WHERE nom = 'Carlton Madagascar' LIMIT 1), 2, '2026-03-24 11:10:00'),
+('CL-2026-010', (SELECT id FROM hotel WHERE nom = 'Hotel Le Louvre' LIMIT 1), 6, '2026-03-24 11:30:00'),
+('CL-2026-011', (SELECT id FROM hotel WHERE nom = 'Radisson Blu Waterfront' LIMIT 1), 13, '2026-03-24 12:00:00'),
+('CL-2026-012', (SELECT id FROM hotel WHERE nom = 'Hotel Sunny' LIMIT 1), 2, '2026-03-24 12:20:00'),
+('CL-2026-013', (SELECT id FROM hotel WHERE nom = 'Hotel Le Louvre' LIMIT 1), 3, '2026-03-24 13:00:00'),
+('CL-2026-014', (SELECT id FROM hotel WHERE nom = 'Palissandre Hotel' LIMIT 1), 7, '2026-03-24 13:45:00');
+
+
 
 -- =========================================================================================
--- 5-bis) REINITIALISATION DES CLES (SEQUENCES)
+-- ETAPE 4: VERIFICATIONS RAPIDES
 -- =========================================================================================
--- A executer apres les INSERT pour aligner les prochaines valeurs d'ID.
-SELECT setval(pg_get_serial_sequence('planning_config', 'id'), COALESCE((SELECT MAX(id) FROM planning_config), 0) + 1, false);
-SELECT setval(pg_get_serial_sequence('vehicule', 'id'),       COALESCE((SELECT MAX(id) FROM vehicule), 0) + 1, false);
-SELECT setval(pg_get_serial_sequence('lieu', 'id'),           COALESCE((SELECT MAX(id) FROM lieu), 0) + 1, false);
-SELECT setval(pg_get_serial_sequence('hotel', 'id'),          COALESCE((SELECT MAX(id) FROM hotel), 0) + 1, false);
-SELECT setval(pg_get_serial_sequence('distance', 'id'),       COALESCE((SELECT MAX(id) FROM distance), 0) + 1, false);
-SELECT setval(pg_get_serial_sequence('reservation', 'id'),    COALESCE((SELECT MAX(id) FROM reservation), 0) + 1, false);
+SELECT 'hotel' AS table_name, COUNT(*) AS nombre_lignes FROM hotel
+UNION ALL SELECT 'lieu', COUNT(*) FROM lieu
+UNION ALL SELECT 'distance', COUNT(*) FROM distance
+UNION ALL SELECT 'planning_config', COUNT(*) FROM planning_config
+UNION ALL SELECT 'vehicule', COUNT(*) FROM vehicule
+UNION ALL SELECT 'reservation', COUNT(*) FROM reservation
+UNION ALL SELECT 'assignement', COUNT(*) FROM assignement;
 
--- =========================================================================================
--- 6) VERIFICATIONS SQL RAPIDES
--- =========================================================================================
-SELECT id, reference, place, type_carburant
-FROM vehicule
-WHERE reference LIKE 'TA-VH-%'
-ORDER BY reference;
-
-SELECT r.id, r.client, h.nom AS hotel, r.nb_passager, r.date_heure_depart
-FROM reservation r
-LEFT JOIN hotel h ON h.id = r.id_hotel
-WHERE DATE(date_heure_depart) = '2026-03-24'
-ORDER BY r.date_heure_depart, r.id;
-
-SELECT l1.code AS from_code, l2.code AS to_code, d.km
-FROM distance d
-JOIN lieu l1 ON l1.id = d.from_lieu
-JOIN lieu l2 ON l2.id = d.to_lieu
-WHERE (l1.code = 'IVATO' AND l2.code IN ('COLBERT', 'BELVEDERE', 'SUNNY'))
-   OR (l2.code = 'IVATO' AND l1.code IN ('COLBERT', 'BELVEDERE', 'SUNNY'))
-ORDER BY from_code, to_code;
-
--- =========================================================================================
--- 7) COMMENT TESTER DANS L'APPLICATION
--- =========================================================================================
--- 1. Ouvrir /planning/result
--- 2. Saisir la date: 2026-03-24
--- 3. Verifier dans le resultat:
---    - Quel vehicule revient en premier apres le creneau 08:00-08:30
---    - Sur la reservation de 10:00, le vehicule choisi doit etre
---      celui avec le moins de courses assignees
--- =========================================================================================
+SELECT a.id,
+       a.date_planning,
+       a.creneau,
+       r.client,
+       v.reference AS vehicule,
+       a.nb_passager_assigne,
+       a.heure_depart,
+       a.heure_retour
+FROM assignement a
+JOIN reservation r ON r.id = a.id_reservation
+JOIN vehicule v ON v.id = a.id_vehicule
+ORDER BY a.date_planning, a.creneau, v.reference, r.client;
