@@ -158,7 +158,18 @@ public class PlanningService {
                     continue;
                 }
                 java.time.LocalDateTime heureReservation = parserDateHeureReservation(r.reservation.getDateHeureDepart());
-                Vehicule vehicule = trouverVehiculeOptimal(vehicules, planningsTousLesCreneaux, r.reservation, heureReservation);
+                
+                java.time.LocalDateTime heureDispoMaxTemp = heureReservation;
+                if (heureReservation != null && creneau.contains("-")) {
+                    try {
+                        String finStr = creneau.split("-")[1].trim();
+                        java.time.LocalTime finTime = java.time.LocalTime.parse(finStr);
+                        heureDispoMaxTemp = java.time.LocalDateTime.of(heureReservation.toLocalDate(), finTime);
+                    } catch (Exception e) {}
+                }
+                final java.time.LocalDateTime heureDispoMax = heureDispoMaxTemp;
+
+                Vehicule vehicule = trouverVehiculeOptimal(vehicules, planningsTousLesCreneaux, r.reservation, heureDispoMax);
 
                 if (vehicule != null) {
                     VehiclePlanningDTO nouveauPlanning = new VehiclePlanningDTO(
@@ -173,7 +184,7 @@ public class PlanningService {
                     remplirPlacesRestantesOptimal(nouveauPlanning, resDansCreneau, config, aeroport, distances, lieux, r, null);
                 } else {
                     java.util.List<Vehicule> vehiculesDisponibles = vehicules.stream()
-                        .filter(v -> estVehiculeDisponiblePourReservation(v, planningsTousLesCreneaux, heureReservation))
+                        .filter(v -> estVehiculeDisponiblePourReservation(v, planningsTousLesCreneaux, heureDispoMax))
                         .collect(java.util.stream.Collectors.toList());
 
                     DivisionReservationResult division = diviserReservation(r, vehiculesDisponibles, planningsTousLesCreneaux);
@@ -225,7 +236,9 @@ public class PlanningService {
 
             java.time.LocalDateTime heureDepartRegroupement = determinerHeureDepartRegroupement(
                 planningsCurrentCreneau,
-                reservationsOriginalesCreneau
+                reservationsOriginalesCreneau,
+                planningsTousLesCreneaux,
+                vehicules
             );
             if (heureDepartRegroupement != null) {
                 for (VehiclePlanningDTO planningVehicule : planningsCurrentCreneau) {
@@ -418,9 +431,20 @@ public class PlanningService {
                     continue;
                 }
                 java.time.LocalDateTime heureReservation = parserDateHeureReservation(r.reservation.getDateHeureDepart());
+                
+                java.time.LocalDateTime heureDispoMaxTemp = heureReservation;
+                if (heureReservation != null && entry.getKey().contains("-")) {
+                    try {
+                        String finStr = entry.getKey().split("-")[1].trim();
+                        java.time.LocalTime finTime = java.time.LocalTime.parse(finStr);
+                        heureDispoMaxTemp = java.time.LocalDateTime.of(heureReservation.toLocalDate(), finTime);
+                    } catch (Exception e) {}
+                }
+                final java.time.LocalDateTime heureDispoMax = heureDispoMaxTemp;
+
                 List<VehiclePlanningDTO> planningsDeReference = new ArrayList<>(plannings);
                 planningsDeReference.addAll(planningsCurrentCreneau);
-                Vehicule v = trouverVehiculeOptimal(vehicules, planningsDeReference, r.reservation, heureReservation);
+                Vehicule v = trouverVehiculeOptimal(vehicules, planningsDeReference, r.reservation, heureDispoMax);
 
                 if (v != null) {
                     VehiclePlanningDTO nouveauPlanning = new VehiclePlanningDTO(v.getId(), v.getReference(), v.getPlace());
@@ -430,7 +454,7 @@ public class PlanningService {
                     remplirPlacesRestantesOptimal(nouveauPlanning, resDansCreneau, config, aeroport, distances, lieux, r, null);
                 } else {
                     java.util.List<Vehicule> vehiculesDisponibles = vehicules.stream()
-                        .filter(vd -> estVehiculeDisponiblePourReservation(vd, planningsDeReference, heureReservation))
+                        .filter(vd -> estVehiculeDisponiblePourReservation(vd, planningsDeReference, heureDispoMax))
                         .collect(java.util.stream.Collectors.toList());
                     DivisionReservationResult division = diviserReservation(r, vehiculesDisponibles, planningsDeReference);
 
@@ -474,7 +498,9 @@ public class PlanningService {
 
             java.time.LocalDateTime heureDepartRegroupement = determinerHeureDepartRegroupement(
                 planningsCurrentCreneau,
-                reservationsOriginalesCreneau
+                reservationsOriginalesCreneau,
+                plannings,
+                vehicules
             );
             if (heureDepartRegroupement != null) {
                 for (VehiclePlanningDTO planningVehicule : planningsCurrentCreneau) {
@@ -796,7 +822,9 @@ public class PlanningService {
     }
 
     public java.time.LocalDateTime determinerHeureDepartRegroupement(List<VehiclePlanningDTO> planningsCreneau,
-                                                                       List<ReservationEnrichi> reservationsDuCreneau) {
+                                                                       List<ReservationEnrichi> reservationsDuCreneau,
+                                                                       List<VehiclePlanningDTO> planningsPrecedents,
+                                                                       List<Vehicule> vehicules) {
         if (planningsCreneau == null || planningsCreneau.isEmpty() || reservationsDuCreneau == null || reservationsDuCreneau.isEmpty()) {
             return null;
         }
@@ -823,6 +851,47 @@ public class PlanningService {
                 java.time.LocalDateTime heureClientAssignee = reservationParHeure.get(clientInfo.getIdReservation());
                 if (heureClientAssignee != null && (derniereHeureAssignee == null || heureClientAssignee.isAfter(derniereHeureAssignee))) {
                     derniereHeureAssignee = heureClientAssignee;
+                }
+            }
+        }
+
+        // Vérifier si un véhicule du créneau actuel est revenu d'un trajet précédent
+        // et a un temps de retour plus tardif que la dernière réservation.
+        if (derniereHeureAssignee != null) {
+            java.time.LocalDate dateActuelle = derniereHeureAssignee.toLocalDate();
+            for (VehiclePlanningDTO planningVehicule : planningsCreneau) {
+                int idVehicule = planningVehicule.getIdVehicule();
+                
+                // Chercher l'heure de disponibilité initiale
+                java.time.LocalDateTime heureDispo = null;
+                if (vehicules != null) {
+                    Vehicule vehicule = vehicules.stream().filter(v -> v.getId() == idVehicule).findFirst().orElse(null);
+                    if (vehicule != null && vehicule.getHeureDisponibilite() != null) {
+                        try {
+                            heureDispo = java.time.LocalDateTime.of(dateActuelle, vehicule.getHeureDisponibilite());
+                        } catch (Exception e) {}
+                    }
+                }
+
+                // Chercher le dernier retour parmi les plannings précédents de ce véhicule
+                java.time.LocalDateTime dernierRetourVehicule = heureDispo;
+                if (planningsPrecedents != null) {
+                    for (VehiclePlanningDTO pastPlanning : planningsPrecedents) {
+                        if (pastPlanning.getIdVehicule() == idVehicule && pastPlanning != planningVehicule) {
+                            java.time.LocalTime rt = extraireHeureRetourPlanning(pastPlanning);
+                            if (rt != null) {
+                                java.time.LocalDateTime returnTime = java.time.LocalDateTime.of(dateActuelle, rt);
+                                if (dernierRetourVehicule == null || returnTime.isAfter(dernierRetourVehicule)) {
+                                    dernierRetourVehicule = returnTime;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Si le véhicule est disponible/retourné après la dernière réservation, on repousse l'heure de départ
+                if (dernierRetourVehicule != null && dernierRetourVehicule.isAfter(derniereHeureAssignee)) {
+                    derniereHeureAssignee = dernierRetourVehicule;
                 }
             }
         }
