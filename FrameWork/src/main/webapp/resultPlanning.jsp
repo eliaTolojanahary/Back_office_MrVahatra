@@ -68,7 +68,10 @@
 </head>
 <body>
     <header>
-        <li>
+        
+    </header>
+    <div class="container">
+    <li>
             <ul>
                 ETU003087
             </ul>
@@ -79,8 +82,6 @@
                 ETU003133
             </ul>
         </li>
-    </header>
-    <div class="container">
         <h1>Résultat de la Planification / <span class="malagasy">Vokatra Planification</span></h1>
         
         <% String error = (String) request.getAttribute("error");
