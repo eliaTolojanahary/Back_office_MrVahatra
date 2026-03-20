@@ -99,7 +99,7 @@ public class Planning {
     public static List<Vehicule> getAllVehicules(Connection conn) throws SQLException {
         List<Vehicule> vehicules = new ArrayList<>();
         
-        String sql = "SELECT id, reference, place, type_carburant FROM vehicule ORDER BY place, type_carburant";
+        String sql = "SELECT id, reference, place, type_carburant, heure_disponibilite FROM vehicule ORDER BY place, type_carburant";
         
         try (PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
@@ -110,6 +110,8 @@ public class Planning {
                 v.setReference(rs.getString("reference"));
                 v.setPlace(rs.getInt("place"));
                 v.setTypeCarburant(rs.getString("type_carburant"));
+                java.sql.Time heureDisp = rs.getTime("heure_disponibilite");
+                if (heureDisp != null) v.setHeureDisponibilite(heureDisp.toLocalTime());
                 vehicules.add(v);
             }
         }

@@ -67,7 +67,21 @@
     </script>
 </head>
 <body>
+    <header>
+        
+    </header>
     <div class="container">
+    <li>
+            <ul>
+                ETU003087
+            </ul>
+            <ul>
+                ETU003204
+            </ul>
+            <ul>
+                ETU003133
+            </ul>
+        </li>
         <h1>Résultat de la Planification / <span class="malagasy">Vokatra Planification</span></h1>
         
         <% String error = (String) request.getAttribute("error");
