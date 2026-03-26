@@ -45,6 +45,7 @@
         .pagination { display: flex; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
         .page-btn { background-color: #f1f1f1; border: 1px solid #ccc; padding: 8px 16px; cursor: pointer; border-radius: 4px; font-weight: bold; }
         .page-btn.active { background-color: #2196F3; color: white; border-color: #2196F3; }
+        .page-btn.active.immediate-dept { background-color: #d32f2f; border-color: #d32f2f; }
         .page-btn:hover:not(.active) { background-color: #ddd; }
         .creneau-section { display: none; }
         .creneau-section.active { display: block; }
@@ -103,9 +104,28 @@
         <div class="pagination">
             <% for (String creneau : planningsParCreneauMap.keySet()) { 
                   String safeId = creneau.replace(":", "").replace(" ", "").replace("-", "_");
+                  
+                  boolean isImmediate = false;
+                  String displayCreneau = creneau;
+                  
+                  if (creneau.contains("-")) {
+                       String[] parts = creneau.split("-");
+                       if (parts.length >= 2) {
+                           String start = parts[0].trim();
+                           String endPart = parts[1].trim(); 
+                           boolean hasSuffix = endPart.contains("(");
+                           String realEnd = hasSuffix ? endPart.substring(0, endPart.indexOf("(")).trim() : endPart;
+                           
+                           if (start.equals(realEnd)) {
+                               isImmediate = true;
+                               String suffix = hasSuffix ? endPart.substring(endPart.indexOf("(")) : "";
+                               displayCreneau = "Départ " + start + " " + suffix;
+                           }
+                       }
+                  }
             %>
-                <button id="btn-<%= safeId %>" class="page-btn <%= index == 0 ? "active" : "" %>" onclick="showCreneau('<%= safeId %>')">
-                    <%= creneau %>
+                <button id="btn-<%= safeId %>" class="page-btn <%= isImmediate ? "immediate-dept" : "" %> <%= index == 0 ? "active" : "" %>" onclick="showCreneau('<%= safeId %>')">
+                    <%= displayCreneau %>
                 </button>
             <%    index++;
                } 
@@ -119,9 +139,28 @@
                    String safeId = creneau.replace(":", "").replace(" ", "").replace("-", "_");
                    List<VehiclePlanningDTO> plannings = entry.getValue();
                    List<ReservationDTO> unassigned = unassignedParCreneauMap.get(creneau);
+                   
+                   boolean isImmediate = false;
+                   String displayTitle = "Tranche horaire / <span class=\"malagasy\">Fotoana</span> : " + creneau;
+                   
+                   if (creneau.contains("-")) {
+                       String[] parts = creneau.split("-");
+                       if (parts.length >= 2) {
+                           String start = parts[0].trim();
+                           String endPart = parts[1].trim(); 
+                           boolean hasSuffix = endPart.contains("(");
+                           String realEnd = hasSuffix ? endPart.substring(0, endPart.indexOf("(")).trim() : endPart;
+                           
+                           if (start.equals(realEnd)) {
+                               isImmediate = true;
+                               String suffix = hasSuffix ? endPart.substring(endPart.indexOf("(")) : "";
+                               displayTitle = "<span style='color:#d32f2f'>⚡ Départ Immédiat / <span class=\"malagasy\">Miainga avy hatrany</span> : " + start + " " + suffix + "</span>";
+                           }
+                       }
+                   }
         %>
         <div id="section-<%= safeId %>" class="creneau-section <%= index == 0 ? "active" : "" %>">
-            <h2 style="color: #2196F3;">Tranche horaire / <span class="malagasy">Fotoana</span> : <%= creneau %></h2>
+            <h2 style="color: #2196F3;"><%= displayTitle %></h2>
             <div class="table-section">
                 <h2>Réservations assignées / <span class="malagasy">Fandaminana amin'ny fiara</span></h2>
                 <table>

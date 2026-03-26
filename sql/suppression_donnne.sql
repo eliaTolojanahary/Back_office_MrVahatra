@@ -134,4 +134,6 @@ INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUE
 ('Client3', (SELECT id FROM hotel WHERE nom = 'Hotel1' LIMIT 1), 3, '2026-03-19 09:10:00'),
 ('Client4', (SELECT id FROM hotel WHERE nom = 'Hotel1' LIMIT 1), 10, '2026-03-19 09:15:00'),
 ('Client5', (SELECT id FROM hotel WHERE nom = 'Hotel1' LIMIT 1), 5, '2026-03-19 09:20:00'),
-('Client6', (SELECT id FROM hotel WHERE nom = 'Hotel1' LIMIT 1), 12, '2026-03-19 13:30:00');
+('Client6', (SELECT id FROM hotel WHERE nom = 'Hotel1' LIMIT 1), 12, '2026-03-19 13:30:00'),
+('Client7', (SELECT id FROM hotel WHERE nom = 'Hotel1' LIMIT 1), 13, '2026-03-19 09:00:00'),
+('Client8', (SELECT id FROM hotel WHERE nom = 'Hotel1' LIMIT 1), 9, '2026-03-19 09:00:00');

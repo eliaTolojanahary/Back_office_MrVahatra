@@ -127,18 +127,243 @@ public class PlanningService {
             Map.Entry<String, List<ReservationEnrichi>> entry = creneauxOrdonnes.get(indexCreneau);
             boolean dernierCreneau = indexCreneau == creneauxOrdonnes.size() - 1;
             String creneau = entry.getKey();
-            List<ReservationEnrichi> resDansCreneau = new ArrayList<>();
+
+            // --- DEBUT LOGIC RETOUR VEHICULE NON ASSIGNE ---
+            List<ReservationEnrichi> unassignedHandled = new ArrayList<>();
+            List<ReservationEnrichi> normalHandled = new ArrayList<>();
+            
             if (!reservationsReportees.isEmpty()) {
-                resDansCreneau.addAll(reservationsReportees);
+                List<Vehicule> vehiculesTries = new ArrayList<>(vehicules);
+                final List<VehiclePlanningDTO> history = planningsTousLesCreneaux;
+                
+                // Trier les véhicules par heure de retour (le plus tôt d'abord)
+                vehiculesTries.sort((v1, v2) -> {
+                    java.time.LocalTime t1 = history.stream()
+                        .filter(p -> p.getIdVehicule() == v1.getId())
+                        .map(this::extraireHeureRetourPlanning)
+                        .filter(java.util.Objects::nonNull)
+                        .max(java.time.LocalTime::compareTo)
+                        .orElse(java.time.LocalTime.MIN);
+                    java.time.LocalTime t2 = history.stream()
+                        .filter(p -> p.getIdVehicule() == v2.getId())
+                        .map(this::extraireHeureRetourPlanning)
+                        .filter(java.util.Objects::nonNull)
+                        .max(java.time.LocalTime::compareTo)
+                        .orElse(java.time.LocalTime.MIN);
+                    return t1.compareTo(t2);
+                });
+
+                int debutCreneauMin = extraireDebutCreneauMinutes(creneau);
+                int finCreneauMin = debutCreneauMin + pasMinutes;
+
+                // Copie de travail pour les non-assignés
+                List<ReservationEnrichi> unassignedWorkList = new ArrayList<>(reservationsReportees);
+                
+                // Trier les réservations non assignées par priorité : NbPassager DESC, Distance ASC
+                unassignedWorkList.sort((r1, r2) -> {
+                    int cmpPassagers = Integer.compare(r2.reservation.getNbPassager(), r1.reservation.getNbPassager());
+                    if (cmpPassagers != 0) return cmpPassagers;
+                    return Double.compare(r1.getDistanceFromAeroport(), r2.getDistanceFromAeroport());
+                });
+                
+                for (Vehicule v : vehiculesTries) {
+                    if (unassignedWorkList.isEmpty()) break;
+
+                    // Vérifier si le véhicule est déjà utilisé dans le futur (dans planningsTousLesCreneaux)
+                    // (Ici on suppose que planningsTousLesCreneaux est chronologique et qu'on est à la "fin" de l'historique connu)
+                    
+                    java.time.LocalTime heureRetour = null;
+                    java.util.Optional<java.time.LocalTime> optHeureRetour = history.stream()
+                        .filter(p -> p.getIdVehicule() == v.getId())
+                        .map(this::extraireHeureRetourPlanning)
+                        .filter(java.util.Objects::nonNull)
+                        .max(java.time.LocalTime::compareTo);
+                    
+                    if (optHeureRetour.isPresent()) {
+                         heureRetour = optHeureRetour.get();
+                    } else {
+                        // Le véhicule n'a pas encore fait de trajet, on ne l'utilise pas pour le "RETOUR" immédiat ici
+                        // Il sera traité par la logique normale du créneau si disponible
+                        continue; 
+                    }
+
+                    int returnMin = heureRetour.getHour() * 60 + heureRetour.getMinute();
+                    
+                    // Si le véhicule est dispo (déjà rentré) ou rentre PENDANT ce créneau
+                    if (returnMin <= finCreneauMin) {
+                        // Mais attention, s'il rentre à 8h50 et le créneau est 8h00-8h30 (c'est pas possible car on avance chronologiquement)
+                        // Si le créneau est 8h30-9h00, et retour à 8h50, C'EST BON.
+                        // Si retour à 8h10, et créneau 8h30-9h00. Il est dispo à 8h10.
+                        // On doit prendre MAX(heureRetour, debutCreneau?) 
+                        // La règle dit : "A partir de son temps de retour". 
+                        // Donc si retour 8h50, départ 8h50.
+                        // Si retour 8h10 (dispo avant créneau), on peut dire départ "immédiat" (mais on est dans la boucle 8h30).
+                        // On va assumer qu'on peut créer un intervalle qui commence AVANT le créneau actuel si nécessaire pour rattraper le retard.
+                        
+                        // CORRECTION : Si le retour est AVANT le début du créneau (ex: retour 8h10, créneau 08h30-09h00),
+                        // Le départ doit se faire au début du créneau actuel (08h30), sinon on crée un planning dans le passé du créneau.
+                        // SAUF si "immédiat" veut dire rattraper le temps perdu. 
+                        // Mais généralement, on attend le début du créneau de prise en charge pour lequel on a des résas (qui sont peut-être parties de 08h00 mais on les traite ici).
+                        // Si on a des résas NON ASSIGNEES, elles sont dispo DEPUIS LONGTEMPS. Donc dès que la voiture arrive, on part.
+                        
+                        // Donc : dateDepart = HeureRetour. (Même si c'est 08h10).
+                        // Mais pour l'affichage et la logique d'intervalle, il faut être cohérent.
+                        
+                        // Si returnMin < debutCreneauMin, cela signifie que la voiture était prête AVANT ce créneau.
+                        // Pourquoi n'a-t-elle pas été utilisée avant? Peut-être parce que par chance elle se libère ou on redécouvre sa dispo.
+                        // Pour les "non assignés", ils attendent. Donc départ dès que voiture la.
+                        // -> dateDepart = Math.max(HeureRetour, DebutCreneau) ?
+                        // Si le client attend depuis 8h00 et la voiture arrive à 8h10. On part à 8h10.
+                        // Si le client attend depuis 8h00 et la voiture arrive à 7h50 (mais on traite le créneau 8h00 car pas vu avant?).
+                        // On va garder dateDepart = heureRetour pour l'instant, c'est le plus logique pour "dès que dispo".
+                        // MAIS si heureRetour est vraiment trop vieux (ex: hier), on clamp au début du créneau ? Non ici c'est du meme jour.
+                        
+                        // FIX: Utiliser la date du planning, pas LocalDate.now() qui peut être different du jour planifié
+                         java.time.LocalDate jourPlanning = java.time.LocalDate.now();
+                         if (datePlanningNormalisee != null) {
+                             try {
+                                 jourPlanning = java.time.LocalDate.parse(datePlanningNormalisee);
+                             } catch (Exception e) { /* fallback today */ }
+                         }
+                        // Création du planning
+                        VehiclePlanningDTO planningVehicule = new VehiclePlanningDTO(v.getId(), v.getReference(), v.getPlace());
+                        java.time.LocalDateTime dateDepart = java.time.LocalDateTime.of(jourPlanning, heureRetour); 
+                        
+                        // Assigner les passagers
+                        List<ReservationEnrichi> aAssigner = new ArrayList<>();
+                        List<ReservationEnrichi> unassignedForThisVehicle = new ArrayList<>();
+                        
+                        // Remplir avec les non-assignés (priorité)
+                        int placesDispo = v.getPlace();
+                        Iterator<ReservationEnrichi> it = unassignedWorkList.iterator();
+                        while (it.hasNext() && placesDispo > 0) {
+                            ReservationEnrichi r = it.next();
+                            int nbPassagers = r.getNbPassager();
+                            
+                            if (nbPassagers <= placesDispo) {
+                                unassignedForThisVehicle.add(r);
+                                placesDispo -= nbPassagers;
+                                it.remove();
+                                unassignedHandled.add(r);
+                            } else {
+                                // SPLIT: Prendre ce qui rentre, laisser le reste
+                                int toTake = placesDispo;
+                                int remaining = nbPassagers - toTake;
+                                
+                                // Créer la partie qui embarque
+                                Reservation partialRes = copierReservationAvecNbPassager(r.reservation, toTake);
+                                ReservationEnrichi partialEnriched = new ReservationEnrichi(
+                                    partialRes, 
+                                    r.lieuHotel, 
+                                    r.getDistanceFromAeroport()
+                                );
+                                unassignedForThisVehicle.add(partialEnriched);
+                                
+                                // Mettre à jour la réservation originale avec le reste
+                                r.reservation.setNbPassager(remaining);
+                                // On ne l'ajoute PAS à unassignedHandled car le reste doit encore être traité plus tard
+                                
+                                placesDispo = 0; // Véhicule plein
+                            }
+                        }
+
+                        if (!unassignedForThisVehicle.isEmpty()) {
+                            planningVehicule.setClients(new ArrayList<>()); // Init list
+                            for (ReservationEnrichi r : unassignedForThisVehicle) {
+                                ajouterClientAuVehicule(planningVehicule, r, config, aeroport, distances, lieux, dateDepart);
+                            }
+                            
+                            boolean isFull = (placesDispo == 0); // Simpliste, ou seuil? "Si le vehicule est plein"
+                            
+                            java.time.LocalTime startInterval = heureRetour;
+                            java.time.LocalTime endInterval = isFull ? heureRetour : heureRetour.plusMinutes(pasMinutes);
+                            
+                            // Si PAS PLEIN, on essaye de combler avec les réservations NORMALES du créneau
+                            if (!isFull) {
+                                // Chercher dans entry.getValue() (les normaux) ceux qui sont compatibles
+                                // Compatible = HeureResa >= StartInterval && HeureResa <= EndInterval
+                                for (ReservationEnrichi rNormal : entry.getValue()) {
+                                    if (placesDispo <= 0) break;
+                                    if (normalHandled.contains(rNormal)) continue;
+
+                                    java.time.LocalDateTime rTime = parserDateHeureReservation(rNormal.reservation.getDateHeureDepart());
+                                    if (rTime != null) {
+                                        java.time.LocalTime rt = rTime.toLocalTime();
+                                        if (!rt.isBefore(startInterval) && !rt.isAfter(endInterval)) {
+                                            if (rNormal.getNbPassager() <= placesDispo) {
+                                                ajouterClientAuVehicule(planningVehicule, rNormal, config, aeroport, distances, lieux, dateDepart);
+                                                placesDispo -= rNormal.getNbPassager();
+                                                normalHandled.add(rNormal);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                             // Recalcul placesDispo REEL après ajout potentiel des normaux
+                            placesDispo = planningVehicule.getPlacesRestantes();
+                            isFull = (placesDispo == 0);
+                            
+                            // SI FINALEMENT PLEIN (après ajout normaux ou initialement), on force l'intervalle à 0 minute (départ immédiat)
+                            if (isFull) {
+                                endInterval = heureRetour;
+                            }
+                            
+                            // Finalisation du planning
+                            // Recalculer trajet pour avoir heure retour correcte
+                            recalculerHorairesVehicule(planningVehicule, config, aeroport, distances, lieux, dateDepart);
+                            
+                            // Ajouter aux listes globales
+                            planningsTousLesCreneaux.add(planningVehicule);
+                            
+                            // Créer clé dynamique
+                            int startMin = startInterval.getHour() * 60 + startInterval.getMinute();
+                            int endMin = endInterval.getHour() * 60 + endInterval.getMinute();
+                            String dynamicKey = formaterCreneau(startMin, endMin) + " (Retour)";
+                            
+                            planningsParCreneauMap.computeIfAbsent(dynamicKey, k -> new ArrayList<>()).add(planningVehicule);
+                            
+                            // POPULATE UNASSIGNED FOR DYNAMIC KEY
+                            // On ajoute les réservations qui n'ont pas encore été assignées à CE STADE (snapshot)
+                            List<ReservationDTO> unassignedSnapshot = new ArrayList<>();
+                            for (ReservationEnrichi re : unassignedWorkList) {
+                                unassignedSnapshot.add(new ReservationDTO(re.reservation));
+                            }
+                            unassignedParCreneauMap.put(dynamicKey, unassignedSnapshot);
+                        }
+                    }
+                }
+            }
+            // --- FIN LOGIC RETOUR VEHICULE NON ASSIGNE ---
+
+            List<ReservationEnrichi> resDansCreneau = new ArrayList<>();
+            // IDs des réservations non assignées
+            final Set<Integer> unassignedIds = new HashSet<>();
+            if (!reservationsReportees.isEmpty()) {
+                resDansCreneau.addAll(reservationsReportees);// Ajoute seulement ceux qui restent
+                // Retirer ceux qu'on vient de traiter (unassignedHandled a été retiré de la copie de travail, mais pas de l'original ici encore)
+                resDansCreneau.removeAll(unassignedHandled); 
+                for (ReservationEnrichi r : resDansCreneau) {
+                    unassignedIds.add(r.reservation.getId()); // Capturer les ID des non-assignés restants
+                }
                 reservationsReportees.clear();
             }
-            resDansCreneau.addAll(entry.getValue());
+            // Ajouter les normaux qui n'ont PAS été pris par la logique dynamique
+            List<ReservationEnrichi> normauxRestants = new ArrayList<>(entry.getValue());
+            normauxRestants.removeAll(normalHandled);
+            resDansCreneau.addAll(normauxRestants);
+            
             List<ReservationEnrichi> reservationsOriginalesCreneau = new ArrayList<>(resDansCreneau);
 
             List<VehiclePlanningDTO> planningsCurrentCreneau = new ArrayList<>();
             List<ReservationDTO> unassignedCurrentCreneau = new ArrayList<>();
 
+            // TRI PRINCIPAL: Priorité Non Assigné > Nb Passager > Distance
             resDansCreneau.sort((r1, r2) -> {
+                boolean u1 = unassignedIds.contains(r1.reservation.getId());
+                boolean u2 = unassignedIds.contains(r2.reservation.getId());
+                if (u1 != u2) return u1 ? -1 : 1; // Les non-assignés (u1=true) passent avant (return -1)
+                
                 int cmpPassagers = Integer.compare(r2.reservation.getNbPassager(), r1.reservation.getNbPassager());
                 if (cmpPassagers != 0) return cmpPassagers;
                 return Double.compare(r1.getDistanceFromAeroport(), r2.getDistanceFromAeroport());
@@ -177,6 +402,28 @@ public class PlanningService {
                         vehicule.getReference(), 
                         vehicule.getPlace()
                     );
+                    
+                    int nbPassagers = r.getNbPassager();
+                    int placesDispo = vehicule.getPlace();
+
+                    if (nbPassagers > placesDispo) {
+                         // Must split
+                         int toTake = placesDispo;
+                         int remaining = nbPassagers - toTake;
+                         
+                         Reservation partialRes = copierReservationAvecNbPassager(r.reservation, toTake);
+                         ReservationEnrichi partialEnriched = new ReservationEnrichi(partialRes, r.lieuHotel, r.getDistanceFromAeroport());
+                         
+                         ajouterClientAuVehicule(nouveauPlanning, partialEnriched, config, aeroport, distances, lieux, null);
+                         planningsCurrentCreneau.add(nouveauPlanning);
+                         planningsTousLesCreneaux.add(nouveauPlanning);
+                         
+                         // Update r for next steps
+                         r.reservation.setNbPassager(remaining);
+                         resDansCreneau.add(0, r); // Put back to beginning to be processed again
+                         continue;
+                    }
+                    
                     ajouterClientAuVehicule(nouveauPlanning, r, config, aeroport, distances, lieux, null);
                     planningsCurrentCreneau.add(nouveauPlanning);
                     planningsTousLesCreneaux.add(nouveauPlanning);
@@ -227,9 +474,8 @@ public class PlanningService {
 
                         if (!dernierCreneau) {
                             reservationsReportees.add(enrichieRestante);
-                        } else {
-                            unassignedCurrentCreneau.add(new ReservationDTO(reservationRestante));
                         }
+                        unassignedCurrentCreneau.add(new ReservationDTO(reservationRestante));
                     }
                 }
             }
