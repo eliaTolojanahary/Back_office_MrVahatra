@@ -139,20 +139,10 @@ public class PlanningService {
                 List<Vehicule> vehiculesTries = new ArrayList<>(vehicules);
                 final List<VehiclePlanningDTO> history = planningsTousLesCreneaux;
                 
-                // Trier les véhicules par heure de retour (le plus tôt d'abord)
+                // Trier les véhicules par heure de disponibilité (retour ou disponibilité initiale)
                 vehiculesTries.sort((v1, v2) -> {
-                    java.time.LocalTime t1 = history.stream()
-                        .filter(p -> p.getIdVehicule() == v1.getId())
-                        .map(this::extraireHeureRetourPlanning)
-                        .filter(java.util.Objects::nonNull)
-                        .max(java.time.LocalTime::compareTo)
-                        .orElse(java.time.LocalTime.MIN);
-                    java.time.LocalTime t2 = history.stream()
-                        .filter(p -> p.getIdVehicule() == v2.getId())
-                        .map(this::extraireHeureRetourPlanning)
-                        .filter(java.util.Objects::nonNull)
-                        .max(java.time.LocalTime::compareTo)
-                        .orElse(java.time.LocalTime.MIN);
+                    java.time.LocalTime t1 = calculerHeureDisponibiliteVehicule(v1, history);
+                    java.time.LocalTime t2 = calculerHeureDisponibiliteVehicule(v2, history);
                     return t1.compareTo(t2);
                 });
 
@@ -175,20 +165,7 @@ public class PlanningService {
                     // Vérifier si le véhicule est déjà utilisé dans le futur (dans planningsTousLesCreneaux)
                     // (Ici on suppose que planningsTousLesCreneaux est chronologique et qu'on est à la "fin" de l'historique connu)
                     
-                    java.time.LocalTime heureRetour = null;
-                    java.util.Optional<java.time.LocalTime> optHeureRetour = history.stream()
-                        .filter(p -> p.getIdVehicule() == v.getId())
-                        .map(this::extraireHeureRetourPlanning)
-                        .filter(java.util.Objects::nonNull)
-                        .max(java.time.LocalTime::compareTo);
-                    
-                    if (optHeureRetour.isPresent()) {
-                         heureRetour = optHeureRetour.get();
-                    } else {
-                        // Le véhicule n'a pas encore fait de trajet, on ne l'utilise pas pour le "RETOUR" immédiat ici
-                        // Il sera traité par la logique normale du créneau si disponible
-                        continue; 
-                    }
+                    java.time.LocalTime heureRetour = calculerHeureDisponibiliteVehicule(v, history);
 
                     int returnMin = heureRetour.getHour() * 60 + heureRetour.getMinute();
                     
@@ -1198,7 +1175,20 @@ public class PlanningService {
             .filter(v -> estVehiculeDisponiblePourReservation(v, planningsExistants, heureDepartPrevue))
             .collect(java.util.stream.Collectors.toList());
 
-        return trouverVehiculeOptimal(vehiculesDisponibles, nbPassagers, planningsExistants);
+        if (vehiculesDisponibles.isEmpty()) {
+            return null;
+        }
+
+        java.time.LocalTime premiereHeure = vehiculesDisponibles.stream()
+            .map(v -> calculerHeureDisponibiliteVehicule(v, planningsExistants))
+            .min(java.time.LocalTime::compareTo)
+            .orElse(java.time.LocalTime.MIN);
+
+        List<Vehicule> vehiculesPremierArrive = vehiculesDisponibles.stream()
+            .filter(v -> calculerHeureDisponibiliteVehicule(v, planningsExistants).equals(premiereHeure))
+            .collect(java.util.stream.Collectors.toList());
+
+        return trouverVehiculeOptimal(vehiculesPremierArrive, nbPassagers, planningsExistants);
     }
 
     public ReservationEnrichi affecterAuxPlanningsExistantsAvecDivision(
@@ -1316,8 +1306,49 @@ public class PlanningService {
     }
 
     public Vehicule trouverVehiculeOptimal(List<Vehicule> vehiculesDisponibles, int nbPassagers, List<VehiclePlanningDTO> planningsExistants) {
+        if (vehiculesDisponibles == null || vehiculesDisponibles.isEmpty()) {
+            return null;
+        }
+
+        java.time.LocalTime premiereHeure = vehiculesDisponibles.stream()
+            .map(v -> calculerHeureDisponibiliteVehicule(v, planningsExistants))
+            .min(java.time.LocalTime::compareTo)
+            .orElse(java.time.LocalTime.MIN);
+
+        List<Vehicule> vehiculesPremierArrive = vehiculesDisponibles.stream()
+            .filter(v -> calculerHeureDisponibiliteVehicule(v, planningsExistants).equals(premiereHeure))
+            .collect(java.util.stream.Collectors.toList());
+
         java.util.Map<Integer, Long> compteurCourses = construireCompteurCourses(planningsExistants);
-        return choisirVehiculeSelonPriorites(vehiculesDisponibles, nbPassagers, compteurCourses, false);
+        return choisirVehiculeSelonPriorites(vehiculesPremierArrive, nbPassagers, compteurCourses, false);
+    }
+
+    private java.time.LocalTime calculerHeureDisponibiliteVehicule(Vehicule vehicule,
+                                                                    List<VehiclePlanningDTO> planningsExistants) {
+        if (vehicule == null) {
+            return java.time.LocalTime.MIN;
+        }
+
+        java.time.LocalTime disponibiliteInitiale = vehicule.getHeureDisponibilite() != null
+            ? vehicule.getHeureDisponibilite()
+            : java.time.LocalTime.MIN;
+
+        if (planningsExistants == null || planningsExistants.isEmpty()) {
+            return disponibiliteInitiale;
+        }
+
+        java.time.LocalTime dernierRetour = planningsExistants.stream()
+            .filter(p -> p.getIdVehicule() == vehicule.getId())
+            .map(this::extraireHeureRetourPlanning)
+            .filter(java.util.Objects::nonNull)
+            .max(java.time.LocalTime::compareTo)
+            .orElse(null);
+
+        if (dernierRetour == null) {
+            return disponibiliteInitiale;
+        }
+
+        return dernierRetour.isAfter(disponibiliteInitiale) ? dernierRetour : disponibiliteInitiale;
     }
 
     public DivisionReservationResult diviserReservation(ReservationEnrichi reservation,
