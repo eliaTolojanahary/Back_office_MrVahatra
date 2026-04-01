@@ -1475,12 +1475,21 @@ public class PlanningService {
             .filter(v -> "diesel".equalsIgnoreCase(v.getTypeCarburant()))
             .collect(java.util.stream.Collectors.toList());
 
-        List<Vehicule> baseRandom = diesels.isEmpty() ? candidatsMoinsCourses : diesels;
-        if (baseRandom.isEmpty()) {
+        List<Vehicule> finalistes = diesels.isEmpty() ? candidatsMoinsCourses : diesels;
+        if (finalistes.isEmpty()) {
             return null;
         }
 
-        return baseRandom.get(new java.util.Random().nextInt(baseRandom.size()));
+        // Selection deterministe: priorite au plus petit vehicule parmi les finalistes.
+        return finalistes.stream()
+            .min((v1, v2) -> {
+                int cmpPlace = Integer.compare(v1.getPlace(), v2.getPlace());
+                if (cmpPlace != 0) {
+                    return cmpPlace;
+                }
+                return Integer.compare(v1.getId(), v2.getId());
+            })
+            .orElse(null);
     }
 
     public Reservation copierReservationAvecNbPassager(Reservation source, int nbPassagers) {
