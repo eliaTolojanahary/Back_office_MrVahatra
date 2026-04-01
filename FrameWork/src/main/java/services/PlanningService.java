@@ -128,6 +128,9 @@ public class PlanningService {
             boolean dernierCreneau = indexCreneau == creneauxOrdonnes.size() - 1;
             String creneau = entry.getKey();
 
+            List<VehiclePlanningDTO> planningsCurrentCreneau = new ArrayList<>();
+            List<ReservationDTO> unassignedCurrentCreneau = new ArrayList<>();
+
             // --- DEBUT LOGIC RETOUR VEHICULE NON ASSIGNE ---
             List<ReservationEnrichi> unassignedHandled = new ArrayList<>();
             List<ReservationEnrichi> normalHandled = new ArrayList<>();
@@ -289,7 +292,8 @@ public class PlanningService {
                                     java.time.LocalDateTime rTime = parserDateHeureReservation(rNormal.reservation.getDateHeureDepart());
                                     if (rTime != null) {
                                         java.time.LocalTime rt = rTime.toLocalTime();
-                                        if (!rt.isBefore(startInterval) && !rt.isAfter(endInterval)) {
+                                        // MODIF: On accepte les reservations avant (qui attendent)
+                                        if (!rt.isAfter(endInterval)) {
                                             if (rNormal.getNbPassager() <= placesDispo) {
                                                 ajouterClientAuVehicule(planningVehicule, rNormal, config, aeroport, distances, lieux, dateDepart);
                                                 placesDispo -= rNormal.getNbPassager();
@@ -316,20 +320,8 @@ public class PlanningService {
                             // Ajouter aux listes globales
                             planningsTousLesCreneaux.add(planningVehicule);
                             
-                            // Créer clé dynamique
-                            int startMin = startInterval.getHour() * 60 + startInterval.getMinute();
-                            int endMin = endInterval.getHour() * 60 + endInterval.getMinute();
-                            String dynamicKey = formaterCreneau(startMin, endMin) + " (Retour)";
-                            
-                            planningsParCreneauMap.computeIfAbsent(dynamicKey, k -> new ArrayList<>()).add(planningVehicule);
-                            
-                            // POPULATE UNASSIGNED FOR DYNAMIC KEY
-                            // On ajoute les réservations qui n'ont pas encore été assignées à CE STADE (snapshot)
-                            List<ReservationDTO> unassignedSnapshot = new ArrayList<>();
-                            for (ReservationEnrichi re : unassignedWorkList) {
-                                unassignedSnapshot.add(new ReservationDTO(re.reservation));
-                            }
-                            unassignedParCreneauMap.put(dynamicKey, unassignedSnapshot);
+                            // Ajouter au planning du créneau courant (fusionné)
+                            planningsCurrentCreneau.add(planningVehicule);
                         }
                     }
                 }
@@ -354,9 +346,6 @@ public class PlanningService {
             resDansCreneau.addAll(normauxRestants);
             
             List<ReservationEnrichi> reservationsOriginalesCreneau = new ArrayList<>(resDansCreneau);
-
-            List<VehiclePlanningDTO> planningsCurrentCreneau = new ArrayList<>();
-            List<ReservationDTO> unassignedCurrentCreneau = new ArrayList<>();
 
             // TRI PRINCIPAL: Priorité Non Assigné > Nb Passager > Distance
             resDansCreneau.sort((r1, r2) -> {

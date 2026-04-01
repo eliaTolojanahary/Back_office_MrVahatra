@@ -124,8 +124,8 @@ INSERT INTO vehicule (reference, place, type_carburant, heure_disponibilite) VAL
 ('Vehicule1', 5, 'diesel', '09:00:00'),
 ('Vehicule2', 5, 'essence', '09:00:00'),
 ('Vehicule3', 12, 'diesel', '00:00:00'),
-('Vehicule4', 9, 'diesel', '09:00:00'),
-('Vehicule5', 12, 'essence', '13:00:00');
+('Vehicule4', 9, 'diesel', '09:00:00');
+-- ('Vehicule5', 12, 'essence', '13:00:00');
 
 -- RESERVATIONS
 INSERT INTO reservation (client, id_hotel, nb_passager, date_heure_depart) VALUES
