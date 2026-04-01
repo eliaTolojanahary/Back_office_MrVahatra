@@ -127,6 +127,11 @@ public class PlanningService {
             Map.Entry<String, List<ReservationEnrichi>> entry = creneauxOrdonnes.get(indexCreneau);
             boolean dernierCreneau = indexCreneau == creneauxOrdonnes.size() - 1;
             String creneau = entry.getKey();
+            boolean regroupementEnCours = entry.getValue() != null && !entry.getValue().isEmpty();
+
+            List<VehiclePlanningDTO> planningsCurrentCreneau = new ArrayList<>();
+            List<ReservationDTO> unassignedCurrentCreneau = new ArrayList<>();
+            Set<VehiclePlanningDTO> planningsRetourDepartImmediat = new HashSet<>();
 
             List<VehiclePlanningDTO> planningsCurrentCreneau = new ArrayList<>();
             List<ReservationDTO> unassignedCurrentCreneau = new ArrayList<>();
@@ -296,9 +301,41 @@ public class PlanningService {
                             
                             // Ajouter aux listes globales
                             planningsTousLesCreneaux.add(planningVehicule);
-                            
-                            // Ajouter au planning du créneau courant (fusionné)
-                            planningsCurrentCreneau.add(planningVehicule);
+
+                            int startMin = startInterval.getHour() * 60 + startInterval.getMinute();
+                            int endMin = endInterval.getHour() * 60 + endInterval.getMinute();
+
+                            boolean overlapAvecCreneauEnCours = intervallesSeChevauchentInclusif(
+                                startMin,
+                                endMin,
+                                debutCreneauMin,
+                                finCreneauMin
+                            );
+
+                            boolean integrerAuCreneauEnCours = regroupementEnCours
+                                && ((returnMin >= debutCreneauMin && returnMin <= finCreneauMin)
+                                    || overlapAvecCreneauEnCours);
+
+                            if (integrerAuCreneauEnCours) {
+                                // Un regroupement est deja en cours: on integre ce retour au creneau actif.
+                                planningsCurrentCreneau.add(planningVehicule);
+                                if (isFull) {
+                                    // Vehicule de retour plein: depart immediat conserve, sans recalage de regroupement.
+                                    planningsRetourDepartImmediat.add(planningVehicule);
+                                }
+                            } else {
+                                // Sinon, on cree un creneau dynamique "Retour".
+                                String dynamicKey = formaterCreneau(startMin, endMin) + " (Retour)";
+
+                                planningsParCreneauMap.computeIfAbsent(dynamicKey, k -> new ArrayList<>()).add(planningVehicule);
+
+                                // Snapshot des non-assignes restants au moment de creation du creneau retour.
+                                List<ReservationDTO> unassignedSnapshot = new ArrayList<>();
+                                for (ReservationEnrichi re : unassignedWorkList) {
+                                    unassignedSnapshot.add(new ReservationDTO(re.reservation));
+                                }
+                                unassignedParCreneauMap.put(dynamicKey, unassignedSnapshot);
+                            }
                         }
                     }
                 }
@@ -454,6 +491,9 @@ public class PlanningService {
             );
             if (heureDepartRegroupement != null) {
                 for (VehiclePlanningDTO planningVehicule : planningsCurrentCreneau) {
+                    if (planningsRetourDepartImmediat.contains(planningVehicule)) {
+                        continue;
+                    }
                     recalculerHorairesVehicule(planningVehicule, config, aeroport, distances, lieux, heureDepartRegroupement);
                 }
             }
@@ -937,66 +977,71 @@ public class PlanningService {
         
         while (peutAjouterDautres && planning.getPlacesRestantes() > 0 && !reservationsRestantes.isEmpty()) {
             peutAjouterDautres = false;
-            
-            int indexMeilleurCandidat = -1;
-            int maxPassagers = 0;
-            
-            for (int i = 0; i < reservationsRestantes.size(); i++) {
-                ReservationEnrichi r = reservationsRestantes.get(i);
-                int nbPassagers = r.reservation.getNbPassager();
 
-                if (planning.peutAccueillir(nbPassagers) && nbPassagers > maxPassagers) {
+            int placesDisponibles = planning.getPlacesRestantes();
+            int indexMeilleurCandidat = -1;
+            int meilleurRemplissage = -1;
+            int meilleureProximite = Integer.MAX_VALUE;
+            double meilleureDistance = Double.MAX_VALUE;
+
+            // Priorite:
+            // 1) maximiser le remplissage reel du vehicule (min(nbPassagers, placesDisponibles))
+            // 2) en cas d'egalite, choisir la reservation la plus proche des places restantes
+            //    (ex: reste=5, candidats 6 et 7 -> choisir 6)
+            // 3) en dernier, choisir la plus proche de l'aeroport
+            for (int i = 0; i < reservationsRestantes.size(); i++) {
+                ReservationEnrichi candidat = reservationsRestantes.get(i);
+                int nbPassagers = candidat.reservation.getNbPassager();
+                int remplissage = Math.min(nbPassagers, placesDisponibles);
+                int proximite = Math.abs(nbPassagers - placesDisponibles);
+                double distance = candidat.getDistanceFromAeroport();
+
+                if (remplissage > meilleurRemplissage
+                    || (remplissage == meilleurRemplissage && proximite < meilleureProximite)
+                    || (remplissage == meilleurRemplissage && proximite == meilleureProximite && distance < meilleureDistance)) {
                     indexMeilleurCandidat = i;
-                    maxPassagers = nbPassagers;
+                    meilleurRemplissage = remplissage;
+                    meilleureProximite = proximite;
+                    meilleureDistance = distance;
                 }
             }
-            
-            if (indexMeilleurCandidat != -1) {
-                ReservationEnrichi meilleurCandidat = reservationsRestantes.remove(indexMeilleurCandidat);
+
+            if (indexMeilleurCandidat == -1 || placesDisponibles <= 0) {
+                break;
+            }
+
+            ReservationEnrichi meilleurCandidat = reservationsRestantes.remove(indexMeilleurCandidat);
+            int nbPassagersCandidat = meilleurCandidat.getNbPassager();
+
+            if (nbPassagersCandidat <= placesDisponibles) {
                 ajouterClientAuVehicule(planning, meilleurCandidat, config, aeroport, distances, lieux, heureDepartForcee);
-                peutAjouterDautres = true; 
+                peutAjouterDautres = true;
             } else {
-                int placesDisponibles = planning.getPlacesRestantes();
-                int minDifference = Integer.MAX_VALUE;
-                int indexCandidatADiviser = -1;
-                
-                for (int i = 0; i < reservationsRestantes.size(); i++) {
-                    int nbPassagers = reservationsRestantes.get(i).reservation.getNbPassager();
-                    int diff = Math.abs(nbPassagers - placesDisponibles);
-                    
-                    if (diff < minDifference) {
-                        minDifference = diff;
-                        indexCandidatADiviser = i;
-                    }
-                }
-                
-                if (indexCandidatADiviser != -1) {
-                    ReservationEnrichi candidatADiviser = reservationsRestantes.remove(indexCandidatADiviser);
-                    
-                    Reservation reservationPourVehicule = copierReservationAvecNbPassager(candidatADiviser.reservation, placesDisponibles);
-                    ReservationEnrichi enrichiePartielle = new ReservationEnrichi(
-                        reservationPourVehicule,
-                        candidatADiviser.lieuHotel,
-                        candidatADiviser.getDistanceFromAeroport()
-                    );
-                    
-                    ajouterClientAuVehicule(planning, enrichiePartielle, config, aeroport, distances, lieux, heureDepartForcee);
-                    
-                    int passagersRestants = candidatADiviser.getNbPassager() - placesDisponibles;
-                    Reservation reliquat = copierReservationAvecNbPassager(candidatADiviser.reservation, passagersRestants);
-                    ReservationEnrichi enrichieReliquat = new ReservationEnrichi(
-                        reliquat,
-                        candidatADiviser.lieuHotel,
-                        candidatADiviser.getDistanceFromAeroport()
-                    );
-                    reservationsRestantes.add(enrichieReliquat);
-                    
-                    reservationsRestantes.sort((r1, r2) -> {
-                        int cmpPassagers = Integer.compare(r2.reservation.getNbPassager(), r1.reservation.getNbPassager());
-                        if (cmpPassagers != 0) return cmpPassagers;
-                        return Double.compare(r1.getDistanceFromAeroport(), r2.getDistanceFromAeroport());
-                    });
-                }
+                Reservation reservationPourVehicule = copierReservationAvecNbPassager(meilleurCandidat.reservation, placesDisponibles);
+                ReservationEnrichi enrichiePartielle = new ReservationEnrichi(
+                    reservationPourVehicule,
+                    meilleurCandidat.lieuHotel,
+                    meilleurCandidat.getDistanceFromAeroport()
+                );
+
+                ajouterClientAuVehicule(planning, enrichiePartielle, config, aeroport, distances, lieux, heureDepartForcee);
+
+                int passagersRestants = nbPassagersCandidat - placesDisponibles;
+                Reservation reliquat = copierReservationAvecNbPassager(meilleurCandidat.reservation, passagersRestants);
+                ReservationEnrichi enrichieReliquat = new ReservationEnrichi(
+                    reliquat,
+                    meilleurCandidat.lieuHotel,
+                    meilleurCandidat.getDistanceFromAeroport()
+                );
+                reservationsRestantes.add(enrichieReliquat);
+
+                reservationsRestantes.sort((r1, r2) -> {
+                    int cmpPassagers = Integer.compare(r2.reservation.getNbPassager(), r1.reservation.getNbPassager());
+                    if (cmpPassagers != 0) return cmpPassagers;
+                    return Double.compare(r1.getDistanceFromAeroport(), r2.getDistanceFromAeroport());
+                });
+
+                peutAjouterDautres = true;
             }
         }
     }
@@ -1163,6 +1208,14 @@ public class PlanningService {
         } catch (Exception e) {
             return Integer.MAX_VALUE;
         }
+    }
+
+    private boolean intervallesSeChevauchentInclusif(int debutA, int finA, int debutB, int finB) {
+        int minA = Math.min(debutA, finA);
+        int maxA = Math.max(debutA, finA);
+        int minB = Math.min(debutB, finB);
+        int maxB = Math.max(debutB, finB);
+        return minA <= maxB && maxA >= minB;
     }
 
     public Vehicule trouverVehiculeOptimal(List<Vehicule> tousVehicules,
